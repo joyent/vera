@@ -33,8 +33,12 @@ function e(index, term) {
 ///--- Tests
 
 test('consistency check on 0, success', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0)
@@ -62,8 +66,12 @@ test('consistency check on 0, success', function (t) {
 
 
 test('consistency check on 0, fail', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 1)
@@ -83,13 +91,21 @@ test('consistency check on 0, fail', function (t) {
 
 
 test('append one at a time', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 //No index, so append!
                 { 'term': 2, 'data': 'data-1-2' }
             ], function (err, entry) {
+                if (err) {
+                    subcb(err);
+                    return;
+                }
                 t.equal(1, entry.index);
                 t.deepEqual(ml.last(), entry);
                 subcb();
@@ -125,8 +141,12 @@ test('append one at a time', function (t) {
 
 
 test('add two success', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
@@ -158,8 +178,12 @@ test('add two success', function (t) {
 
 
 test('slices', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
@@ -207,8 +231,12 @@ test('slices', function (t) {
 
 
 test('idempotent, two in the middle.', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
@@ -248,7 +276,10 @@ test('cause truncate from beginning', function (t) {
         'log': LOG
     });
     var funcs = [
-        //Append Four
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
@@ -282,8 +313,12 @@ test('cause truncate from beginning', function (t) {
 
 
 test('cause truncate in middle', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
@@ -320,8 +355,12 @@ test('cause truncate in middle', function (t) {
 
 
 test('cause replace end, add one', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
@@ -357,8 +396,12 @@ test('cause replace end, add one', function (t) {
 
 
 test('add first, term > 0', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 { 'term': 5, 'data': 'data-1-5' }
@@ -382,8 +425,12 @@ test('add first, term > 0', function (t) {
 
 
 test('term mismatch', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
@@ -409,8 +456,12 @@ test('term mismatch', function (t) {
 
 
 test('indexes out of order', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
@@ -433,8 +484,12 @@ test('indexes out of order', function (t) {
 
 
 test('term out of order', function (t) {
-    var ml = new MemLog({ 'log': LOG });
+    var ml;
     var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
         function (_, subcb) {
             ml.append([
                 e(0, 0),
