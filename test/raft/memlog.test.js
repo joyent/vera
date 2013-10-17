@@ -5,6 +5,8 @@ var helper = require('../helper.js');
 var MemLog = require('./memlog');
 var vasync = require('vasync');
 
+
+
 ///--- Globals
 
 var test = helper.test;
@@ -22,27 +24,21 @@ function e(index, term) {
     return ({
         'index': index,
         'term': term,
-        'data': 'data-' + index + '-' + term
+        'data': index === 0 ? 'noop' : 'data-' + index + '-' + term
     });
 }
 
 
+
 ///--- Tests
 
-test('add one', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+test('consistency check on 0, success', function (t) {
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append One
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0)
-                ]
-            }, subcb);
+            ml.append([
+                e(0, 0)
+            ], subcb);
         },
         function (_, subcb) {
             t.ok(ml.clog.length === 1);
@@ -65,71 +61,55 @@ test('add one', function (t) {
 });
 
 
-test('add two to begin with', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+test('consistency check on 0, fail', function (t) {
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append Two
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0)
-                ]
-            }, subcb);
-        },
-        function (_, subcb) {
-            t.ok(ml.clog.length === 2);
-            t.deepEqual(e(0, 0), ml.clog[0]);
-            t.deepEqual(e(1, 0), ml.clog[1]);
-            subcb();
+            ml.append([
+                e(0, 1)
+            ], subcb);
         }
     ];
     vasync.pipeline({
         funcs: funcs
     }, function (err) {
-        if (err) {
-            t.fail(err);
+        if (!err) {
+            t.fail('should have thrown an error...');
         }
+        t.equal('TermMismatchError', err.name);
         t.done();
     });
 });
 
 
-test('add one, then two', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+test('append one at a time', function (t) {
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append One
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0)
-                ]
-            }, subcb);
+            ml.append([
+                //No index, so append!
+                { 'term': 2, 'data': 'data-1-2' }
+            ], function (err, entry) {
+                t.equal(1, entry.index);
+                t.deepEqual(ml.last(), entry);
+                subcb();
+            });
         },
-        //Append 2 more
         function (_, subcb) {
-            ml.append({
-                prevIndex: 0,
-                prevTerm: 0,
-                entries: [
-                    e(1, 3),
-                    e(2, 3)
-                ]
-            }, subcb);
+            ml.append([
+                //No index, so append!
+                { 'term': 2, 'data': 'data-2-2' }
+            ], function (err, entry) {
+                t.equal(2, entry.index);
+                t.deepEqual(ml.last(), entry);
+                subcb();
+            });
         },
         function (_, subcb) {
             t.ok(ml.clog.length === 3);
             t.deepEqual(e(0, 0), ml.clog[0]);
-            t.deepEqual(e(1, 3), ml.clog[1]);
-            t.deepEqual(e(2, 3), ml.clog[2]);
+            t.deepEqual(e(1, 2), ml.clog[1]);
+            t.deepEqual(e(2, 2), ml.clog[2]);
             subcb();
         }
     ];
@@ -144,39 +124,26 @@ test('add one, then two', function (t) {
 });
 
 
-test('add two, then two more', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+test('add two success', function (t) {
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append Two
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0)
-                ]
-            }, subcb);
+            ml.append([
+                e(0, 0),
+                e(1, 1),
+                e(2, 1)
+            ], subcb);
         },
         function (_, subcb) {
-            ml.append({
-                prevIndex: 1,
-                prevTerm: 0,
-                entries: [
-                    e(2, 1),
-                    e(3, 1)
-                ]
-            }, subcb);
-        },
-        function (_, subcb) {
-            t.ok(ml.clog.length === 4);
+            t.ok(ml.clog.length === 3);
             t.deepEqual(e(0, 0), ml.clog[0]);
-            t.deepEqual(e(1, 0), ml.clog[1]);
+            t.deepEqual(e(1, 1), ml.clog[1]);
             t.deepEqual(e(2, 1), ml.clog[2]);
-            t.deepEqual(e(3, 1), ml.clog[3]);
-            subcb();
+            ml.slice(1, function (err, entries) {
+                t.ok(entries.length === 2);
+                t.deepEqual([ e(1, 1), e(2, 1) ], entries);
+                subcb();
+            });
         }
     ];
     vasync.pipeline({
@@ -191,22 +158,15 @@ test('add two, then two more', function (t) {
 
 
 test('slices', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append Two
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 1),
-                    e(3, 1)
-                ]
-            }, subcb);
+            ml.append([
+                e(0, 0),
+                e(1, 0),
+                e(2, 1),
+                e(3, 1)
+            ], subcb);
         },
         function (_, subcb) {
             ml.slice(0, function (err, entries) {
@@ -246,119 +206,29 @@ test('slices', function (t) {
 });
 
 
-test('truncate off one', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+test('idempotent, two in the middle.', function (t) {
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append Two
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0)
-                ]
-            }, subcb);
-        },
-        //Truncate off prev
-        function (_, subcb) {
-            ml.truncate(ml.clog.length - 1, subcb);
+            ml.append([
+                e(0, 0),
+                e(1, 0),
+                e(2, 0),
+                e(3, 0)
+            ], subcb);
         },
         function (_, subcb) {
-            t.ok(ml.clog.length === 1);
-            t.deepEqual(e(0, 0), ml.clog[0]);
-            t.ok(ml.prevIndex === 0);
-            t.ok(ml.prevTerm === 0);
-            subcb();
-        }
-    ];
-    vasync.pipeline({
-        funcs: funcs
-    }, function (err) {
-        if (err) {
-            t.fail(err);
-        }
-        t.done();
-    });
-});
-
-
-test('truncate to 0', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
-    var funcs = [
-        //Append Two
-        function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0)
-                ]
-            }, subcb);
-        },
-        //Truncate to 0
-        function (_, subcb) {
-            ml.truncate(0, subcb);
+            ml.append([
+                e(1, 0),
+                e(2, 0)
+            ], subcb);
         },
         function (_, subcb) {
-            t.ok(ml.clog.length === 0);
-            t.ok(ml.prevIndex === null);
-            t.ok(ml.prevTerm === null);
-            subcb();
-        }
-    ];
-    vasync.pipeline({
-        funcs: funcs
-    }, function (err) {
-        if (err) {
-            t.fail(err);
-        }
-        t.done();
-    });
-});
-
-
-test('truncate to 0, add one', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
-    var funcs = [
-        //Append Two
-        function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0)
-                ]
-            }, subcb);
-        },
-        //Truncate to 0
-        function (_, subcb) {
-            ml.truncate(0, subcb);
-        },
-        function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0)
-                ]
-            }, subcb);
-        },
-        function (_, subcb) {
-            t.ok(ml.clog.length === 2);
+            t.ok(ml.clog.length === 4);
             t.deepEqual(e(0, 0), ml.clog[0]);
             t.deepEqual(e(1, 0), ml.clog[1]);
-            t.ok(ml.prevIndex === 1);
-            t.ok(ml.prevTerm === 0);
+            t.deepEqual(e(2, 0), ml.clog[2]);
+            t.deepEqual(e(3, 0), ml.clog[3]);
             subcb();
         }
     ];
@@ -373,34 +243,105 @@ test('truncate to 0, add one', function (t) {
 });
 
 
-test('truncate to middle, add two', function (t) {
+test('cause truncate from beginning', function (t) {
     var ml = new MemLog({
         'log': LOG
     });
     var funcs = [
         //Append Four
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 0),
-                    e(3, 0)
-                ]
-            }, subcb);
+            ml.append([
+                e(0, 0),
+                e(1, 0),
+                e(2, 0),
+                e(3, 0)
+            ], subcb);
         },
-        //Truncate two
         function (_, subcb) {
-            ml.truncate(2, subcb);
+            ml.append([
+                e(0, 0),
+                e(1, 1)
+            ], subcb);
         },
         function (_, subcb) {
             t.ok(ml.clog.length === 2);
             t.deepEqual(e(0, 0), ml.clog[0]);
+            t.deepEqual(e(1, 1), ml.clog[1]);
+            subcb();
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('cause truncate in middle', function (t) {
+    var ml = new MemLog({ 'log': LOG });
+    var funcs = [
+        function (_, subcb) {
+            ml.append([
+                e(0, 0),
+                e(1, 0),
+                e(2, 0),
+                e(3, 0)
+            ], subcb);
+        },
+        function (_, subcb) {
+            ml.append([
+                e(1, 0),
+                e(2, 1),
+                e(3, 3)
+            ], subcb);
+        },
+        function (_, subcb) {
+            t.ok(ml.clog.length === 4);
+            t.deepEqual(e(0, 0), ml.clog[0]);
             t.deepEqual(e(1, 0), ml.clog[1]);
-            t.ok(ml.prevIndex === 1);
-            t.ok(ml.prevTerm === 0);
+            t.deepEqual(e(2, 1), ml.clog[2]);
+            t.deepEqual(e(3, 3), ml.clog[3]);
+            subcb();
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('cause replace end, add one', function (t) {
+    var ml = new MemLog({ 'log': LOG });
+    var funcs = [
+        function (_, subcb) {
+            ml.append([
+                e(0, 0),
+                e(1, 0),
+                e(2, 0)
+            ], subcb);
+        },
+        function (_, subcb) {
+            ml.append([
+                e(1, 0),
+                e(2, 3),
+                e(3, 3)
+            ], subcb);
+        },
+        function (_, subcb) {
+            t.ok(ml.clog.length === 4);
+            t.deepEqual(e(0, 0), ml.clog[0]);
+            t.deepEqual(e(1, 0), ml.clog[1]);
+            t.deepEqual(e(2, 3), ml.clog[2]);
+            t.deepEqual(e(3, 3), ml.clog[3]);
             subcb();
         }
     ];
@@ -416,23 +357,16 @@ test('truncate to middle, add two', function (t) {
 
 
 test('add first, term > 0', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append One
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 5)
-                ]
-            }, subcb);
+            ml.append([
+                { 'term': 5, 'data': 'data-1-5' }
+            ], subcb);
         },
         function (_, subcb) {
-            t.ok(ml.clog.length === 1);
-            t.deepEqual(e(0, 5), ml.clog[0]);
+            t.ok(ml.clog.length === 2);
+            t.deepEqual(e(1, 5), ml.clog[1]);
             subcb();
         }
     ];
@@ -447,65 +381,20 @@ test('add first, term > 0', function (t) {
 });
 
 
-test('prevIndex mismatch', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+test('term mismatch', function (t) {
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append One
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0)
-                ]
-            }, subcb);
+            ml.append([
+                e(0, 0),
+                e(1, 0)
+            ], subcb);
         },
         function (_, subcb) {
-            ml.append({
-                prevIndex: 1,
-                prevTerm: 0,
-                entries: [
-                    e(1, 0)
-                ]
-            }, subcb);
-        }
-    ];
-    vasync.pipeline({
-        funcs: funcs
-    }, function (err) {
-        if (!err || err.name !== 'IndexMismatchError') {
-            t.fail('should have thrown an IndexMismatchError');
-        }
-        t.done();
-    });
-});
-
-
-test('prevTerm mismatch', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
-    var funcs = [
-        //Append One
-        function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0)
-                ]
-            }, subcb);
-        },
-        function (_, subcb) {
-            ml.append({
-                prevIndex: 0,
-                prevTerm: 1,
-                entries: [
-                    e(1, 0)
-                ]
-            }, subcb);
+            ml.append([
+                e(1, 1),
+                e(2, 1)
+            ], subcb);
         }
     ];
     vasync.pipeline({
@@ -520,23 +409,16 @@ test('prevTerm mismatch', function (t) {
 
 
 test('indexes out of order', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append One
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 0),
-                    e(3, 0),
-                    e(2, 0),
-                    e(4, 0)
-                ]
-            }, subcb);
+            ml.append([
+                e(0, 0),
+                e(1, 0),
+                e(3, 0),
+                e(2, 0),
+                e(4, 0)
+            ], subcb);
         }
     ];
     vasync.pipeline({
@@ -551,23 +433,16 @@ test('indexes out of order', function (t) {
 
 
 test('term out of order', function (t) {
-    var ml = new MemLog({
-        'log': LOG
-    });
+    var ml = new MemLog({ 'log': LOG });
     var funcs = [
-        //Append One
         function (_, subcb) {
-            ml.append({
-                prevIndex: null,
-                prevTerm: null,
-                entries: [
-                    e(0, 0),
-                    e(1, 1),
-                    e(2, 2),
-                    e(3, 1),
-                    e(4, 2)
-                ]
-            }, subcb);
+            ml.append([
+                e(0, 0),
+                e(1, 1),
+                e(2, 2),
+                e(3, 1),
+                e(4, 2)
+            ], subcb);
         }
     ];
     vasync.pipeline({

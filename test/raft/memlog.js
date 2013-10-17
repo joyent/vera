@@ -6,8 +6,7 @@ var error = require('../../lib/error');
 var sprintf = require('extsprintf').sprintf;
 var util = require('util');
 
-//TODO: This really needs to be an idempotent interface so that an append of
-// data that's already there won't thrown an error.
+
 
 ///--- Functions
 
@@ -17,11 +16,12 @@ function MemLog(opts) {
 
     var self = this;
     self.log = opts.log;
-    self.clog = [];
-    //TODO: This is wrong, we shouldn't be keeping this around...
-    self.prevIndex = null;
-    self.prevTerm = null;
+    //The Raft paper says that the index should start at one.  Rather than
+    // doing that, a fixed [0] ensures that the consistency check will always
+    // succeed.
+    self.clog = [ { 'term': 0, 'index': 0, 'data': 'noop' } ];
 
+    //TODO: Should this be a part of the api?
     process.nextTick(function () {
         self.emit('ready');
     });
@@ -34,90 +34,74 @@ module.exports = MemLog;
 
 ///--- API
 
-//We want to keep the checking of prevIndex/prevTerm as close as possible to
-//the datasource.  I don't believe there's a reason to append blindly here.
-MemLog.prototype.append = function (o, cb) {
+/**
+ * Api works as follows:
+ *   - Single entry with term and index is a consistency check (ping)
+ *   - Single entry with no index gets appended, the index is returned in
+ *     response.
+ *   - Many entries, first entry is a consistency check.  Truncation happens
+ *     if the consistency check passes, but the list of entries diverge.
+ *   - If entries are a sublist of the log, nothing happens.
+ */
+MemLog.prototype.append = function (entries, cb) {
+    assert.arrayOfObject(entries, 'entries');
+    if (entries.length === 0) {
+        return (cb(null));
+    }
+
     var self = this;
-    var e = null;
+    var entry = entries[0];
+    assert.optionalNumber(entry.index, 'entries[0].index');
+    assert.number(entry.term, 'entries[0].term');
 
-    assert.object(o, 'o');
-    //Because (typeof (null)) === 'object'
-    assert.optionalNumber(o.prevIndex === null ? undefined : o.prevIndex);
-    assert.optionalNumber(o.prevTerm === null ? undefined : o.prevTerm);
-    assert.arrayOfObject(o.entries);
-
-    //TODO: This isn't correct behavior.  Really, it should be looking up the
-    //term and index.
-    if (self.prevIndex !== o.prevIndex) {
-        e = new error.IndexMismatchError(sprintf(
-            'append failed: sent prev index (%d) did\'t match ' +
-                'current index (%d)', o.prevIndex,
-            self.prevIndex));
-        return (cb(e));
-    }
-    if (self.prevTerm !== o.prevTerm) {
-        e = new error.TermMismatchError(sprintf(
-            'append failed: sent prev term (%d) did\'t match ' +
-                'current term (%d)', o.prevTerm,
-            self.prevTerm));
-        return (cb(e));
+    //Append new
+    if (entries.length === 1 && entry.index === undefined) {
+        entry.index = self.clog.length;
+        self.clog.push(entry);
+        return (cb(null, entry));
     }
 
-    var li = o.prevIndex;
-    var lt = o.prevTerm;
-    var nextIndex = (li === null) ? 0 : li + 1;
-    var loopTerm = lt;
+    //Consistency Check
+    var centry = self.clog[entry.index]; //Funny pun, haha
+    if (centry === undefined || centry.term !== entry.term) {
+        return (cb(new error.TermMismatchError(sprintf(
+            'at entry %d, command log term %d doesn\'t match %d',
+            entry.index, centry.term, entry.term))));
+    }
+
+    //Sanity checks...
 
     //Verify indexes are in order, terms are strictly increasing
-    for (var i = 0; i < o.entries.length; ++i) {
-        var entry = o.entries[i];
-        if (nextIndex !== entry.index) {
-            e = new error.InvalidIndexError(sprintf(
-                'entry at index %d should have index %d (was ' +
-                    '%d)', i, nextIndex, entry.index));
-            return (cb(e));
+    var loopTerm = entry.term;
+    for (var i = 1; i < entries.length; ++i) {
+        var e = entries[i];
+        if (e.index !== (entry.index + i)) {
+            return (cb(new error.InvalidIndexError(sprintf(
+                'index isn\'t strictly increasing at %d', i))));
         }
-        if (entry.term < loopTerm) {
-            e = new error.InvalidTermError(sprintf(
-                'entry at index %d should have had a term ' +
-                    'greater than %d (was %d)', i, loopTerm,
-                entry.term));
-            return (cb(e));
+        if (e.term < loopTerm) {
+            return (cb(new error.InvalidTermError(sprintf(
+                'term isn\'t strictly increasing at %d', i))));
         }
-        loopTerm = entry.term;
-        ++nextIndex;
+        loopTerm = e.term;
     }
 
-    //Now add to the log.
-    for (i = 0; i < o.entries.length; ++i) {
-        self.clog[o.entries[i].index] = o.entries[i];
-        self.prevIndex = o.entries[i].index;
-        self.prevTerm = o.entries[i].term;
+    //Since truncation isn't safe unless the terms diverge, we have to
+    // look at each entry.
+    for (i = 1; i < entries.length; ++i) {
+        e = entries[i];
+        //Truncate if necessary...
+        if (self.clog[e.index] && self.clog[e.index].term != e.term) {
+            self.clog.length = e.index;
+        }
+        self.clog[e.index] = e;
     }
 
     return (cb(null));
 };
 
 
-//Truncates up to and including index.  For example:
-//truncate([0, 1, 2], 1) => [0]
-MemLog.prototype.truncate = function (index, cb) {
-    var self = this;
-    if (index === 0) {
-        self.clog = [];
-        self.prevIndex = null;
-        self.prevTerm = null;
-    } else {
-        self.clog.length = index; //Truncate
-        self.prevIndex = self.clog[index - 1].index;
-        self.prevTerm = self.clog[index - 1].term;
-    }
-    cb();
-};
-
-
-//Same function signature as Javascript's array.slice, because it's just a
-//passthrough with the exception that a cb can be sent in place of end.
+//Same function signature as Javascript's array.slice.
 MemLog.prototype.slice = function (start, end, cb) {
     assert.number(start, 'index');
     if ((typeof (end)) === 'function') {
@@ -131,13 +115,18 @@ MemLog.prototype.slice = function (start, end, cb) {
 };
 
 
+MemLog.prototype.last = function () {
+    var self = this;
+    return (self.clog[self.clog.length - 1]);
+};
+
+
+
 ///--- For Debugging
 
 MemLog.prototype.dump = function () {
     var self = this;
     console.log({
-        prevTerm: self.prevTerm,
-        prevIndex: self.prevIndex,
         clog: self.clog
     });
 };
