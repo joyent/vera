@@ -1,8 +1,8 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var helper = require('./helper.js');
-var MemLog = require('../lib/memlog');
+var helper = require('../helper.js');
+var MemLog = require('./memlog');
 var vasync = require('vasync');
 
 ///--- Globals
