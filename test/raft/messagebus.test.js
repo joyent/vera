@@ -71,6 +71,7 @@ test('request/reply', function (t) {
                 'me', '0', { 'operation': 'appendEntries' }, onResponse);
 
             process.nextTick(function () {
+                t.equal(1, Object.keys(mb.messages).length);
                 mb.tick();
             });
         }
