@@ -11,8 +11,8 @@ var vasync = require('vasync');
 
 var test = helper.test;
 var LOG = bunyan.createLogger({
-    level: (process.env.LOG_LEVEL || 'debug'),
-    name: 'checker',
+    level: (process.env.LOG_LEVEL || 'fatal'),
+    name: 'messagebus-test',
     stream: process.stdout
 });
 

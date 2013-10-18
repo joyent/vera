@@ -21,11 +21,11 @@ var util = require('util');
 function MessageBus(opts) {
     assert.object(opts, 'opts');
     assert.object(opts.log, 'opts.log');
-    assert.object(opts.peers, 'opts.peers');
+    assert.optionalObject(opts.peers, 'opts.peers');
 
     var self = this;
     self.log = opts.log;
-    self.peers = opts.peers;
+    self.peers = opts.peers || {};
     self.messageId = 0;
     self.messages = {};
 
@@ -68,6 +68,15 @@ MessageBus.prototype.send = function (from, to, message, cb) {
     };
 
     return (messageId);
+};
+
+
+MessageBus.prototype.register = function (peer) {
+    assert.object(peer, 'peer');
+    assert.string(peer.id, 'peer.id');
+
+    var self = this;
+    self.peers[peer.id] = peer;
 };
 
 
