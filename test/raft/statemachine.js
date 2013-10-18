@@ -58,8 +58,8 @@ StateMachine.prototype.execute = function (entries, cb) {
                     'out of order commit, commit at %d, tried to apply entry ' +
                         'with index %d', self.commitIndex, entry.index)))));
         }
-        if (entry.data !== 'noop') {
-            self.data = entry.data;
+        if (entry.command !== 'noop') {
+            self.data = entry.command;
         }
         ++self.commitIndex;
     }

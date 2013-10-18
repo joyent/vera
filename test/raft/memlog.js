@@ -40,7 +40,7 @@ function MemLog(opts) {
     //The Raft paper says that the index should start at one.  Rather than
     // doing that, a fixed [0] ensures that the consistency check will always
     // succeed.
-    self.clog = [ { 'term': 0, 'index': 0, 'data': 'noop' } ];
+    self.clog = [ { 'term': 0, 'index': 0, 'command': 'noop' } ];
     self.ready = false;
 
     process.nextTick(function () {

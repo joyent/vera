@@ -34,7 +34,7 @@ test('statemachine init and execute one', function (t) {
         },
         function (_, subcb) {
             sm.execute([
-                { 'index': 1, 'data': 'one' }
+                { 'index': 1, 'command': 'one' }
             ], function (err) {
                 t.equal('one', sm.data);
                 t.equal(1, sm.commitIndex);
@@ -62,12 +62,12 @@ test('statemachine execute many', function (t) {
         },
         function (_, subcb) {
             sm.execute([
-                { 'index': 1, 'data': 'one' },
-                { 'index': 2, 'data': 'two' },
-                { 'index': 3, 'data': 'three' },
-                { 'index': 4, 'data': 'four' },
-                { 'index': 5, 'data': 'five' },
-                { 'index': 6, 'data': 'six' }
+                { 'index': 1, 'command': 'one' },
+                { 'index': 2, 'command': 'two' },
+                { 'index': 3, 'command': 'three' },
+                { 'index': 4, 'command': 'four' },
+                { 'index': 5, 'command': 'five' },
+                { 'index': 6, 'command': 'six' }
             ], function (err) {
                 t.equal('six', sm.data);
                 t.equal(6, sm.commitIndex);
@@ -95,7 +95,7 @@ test('statemachine first out of order', function (t) {
         },
         function (_, subcb) {
             sm.execute([
-                { 'index': 2, 'data': 'two' }
+                { 'index': 2, 'command': 'two' }
             ], subcb);
         }
     ];
@@ -120,10 +120,10 @@ test('statemachine middle out of order', function (t) {
         },
         function (_, subcb) {
             sm.execute([
-                { 'index': 1, 'data': 'one' },
-                { 'index': 2, 'data': 'two' },
-                { 'index': 4, 'data': 'four' },
-                { 'index': 3, 'data': 'three' }
+                { 'index': 1, 'command': 'one' },
+                { 'index': 2, 'command': 'two' },
+                { 'index': 4, 'command': 'four' },
+                { 'index': 3, 'command': 'three' }
             ], subcb);
         }
     ];

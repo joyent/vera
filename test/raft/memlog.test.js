@@ -24,7 +24,7 @@ function e(index, term) {
     return ({
         'index': index,
         'term': term,
-        'data': index === 0 ? 'noop' : 'data-' + index + '-' + term
+        'command': index === 0 ? 'noop' : 'command-' + index + '-' + term
     });
 }
 
@@ -100,7 +100,7 @@ test('append one at a time', function (t) {
         function (_, subcb) {
             ml.append([
                 //No index, so append!
-                { 'term': 2, 'data': 'data-1-2' }
+                { 'term': 2, 'command': 'command-1-2' }
             ], function (err, entry) {
                 if (err) {
                     subcb(err);
@@ -114,7 +114,7 @@ test('append one at a time', function (t) {
         function (_, subcb) {
             ml.append([
                 //No index, so append!
-                { 'term': 2, 'data': 'data-2-2' }
+                { 'term': 2, 'command': 'command-2-2' }
             ], function (err, entry) {
                 t.equal(2, entry.index);
                 t.deepEqual(ml.last(), entry);
@@ -404,7 +404,7 @@ test('add first, term > 0', function (t) {
         },
         function (_, subcb) {
             ml.append([
-                { 'term': 5, 'data': 'data-1-5' }
+                { 'term': 5, 'command': 'command-1-5' }
             ], subcb);
         },
         function (_, subcb) {
