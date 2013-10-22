@@ -3,7 +3,6 @@
 var assert = require('assert-plus');
 var events = require('events');
 var error = require('../../lib/error');
-var sprintf = require('extsprintf').sprintf;
 var util = require('util');
 
 /**

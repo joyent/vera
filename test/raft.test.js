@@ -27,8 +27,8 @@ function checkInitalRaft(raft, t) {
     assert.object(raft.log, 'raft.log');
     t.equal(undefined, raft.leaderId);
     assert.number(raft.leaderTimeout);
-    t.equal(0, raft.currentTerm);
-    t.equal(undefined, raft.votedFor);
+    t.equal(0, raft.currentTerm());
+    t.equal(undefined, raft.votedFor());
     assert.arrayOfString(raft.peers);
     t.ok(raft.peers.indexOf(raft.id) === -1);
     assert.object(raft.clog);
@@ -93,12 +93,21 @@ test('transition to candidate', function (t) {
                 // candidate on the next tick...
                 r0.leaderTimeout = 1;
                 r0.tick();
+                r0.on('stateChange', function (state) {
+                    t.equal('candidate', state);
+                    return (subcb(null));
+                });
+            },
+            function (_, subcb) {
+                var c = _.cluster;
+                var r0 = c.peers['raft-0'];
+                r0.removeAllListeners();
 
                 //Now it should be a candidate...
                 t.equal(undefined, r0.leaderId);
                 assert.ok(r0.leaderTimeout > 0);
-                t.equal(1, r0.currentTerm);
-                t.equal(r0.id, r0.votedFor);
+                t.equal(1, r0.currentTerm());
+                t.equal(r0.id, r0.votedFor());
                 t.equal(2, Object.keys(r0.outstandingMessages).length);
                 t.equal('candidate', r0.state);
 
@@ -146,34 +155,32 @@ test('elect initial leader', function (t) {
                 // candidate on the next tick...
                 r0.leaderTimeout = 1;
                 r0.tick();
+                r0.on('stateChange', function (state) {
+                    r0.removeAllListeners();
 
-                //Make sure r0 is a candidate and there are 2 messages in the
-                //message bus.  It's tested in more detail above.
-                t.equal('candidate', r0.state);
-                t.equal(2, Object.keys(c.messageBus.messages).length);
+                    //Make sure r0 is a candidate and there are 2 messages in
+                    //the message bus.  It's tested in more detail above.
+                    t.equal('candidate', r0.state);
+                    t.equal(2, Object.keys(c.messageBus.messages).length);
 
-                //Setting the leader timeout on the other two so that we can
-                // verify the timeout gets reset.
-                c.peers['raft-1'].leaderTimeout = 2;
-                c.peers['raft-2'].leaderTimeout = 2;
+                    //Setting the leader timeout on the other two so that we can
+                    // verify the timeout gets reset.
+                    c.peers['raft-1'].leaderTimeout = 2;
+                    c.peers['raft-2'].leaderTimeout = 2;
 
-                subcb();
+                    subcb();
+                });
             },
             function (_, subcb) {
                 var c = _.cluster;
+                var r0 = c.peers['raft-0'];
+                r0.on('stateChange', function (state) {
+                    r0.removeAllListeners();
+                    t.equal('leader', state);
+                    subcb();
+                });
                 c.messageBus.tick();
-                subcb();
             },
-            //Hrm... I had to break this out from the previous so that the the
-            // full leader election would take place.  This is because of the
-            // process.nextTicks in the mem classes.  Perhaps those weren't the
-            // best idea...
-            function (_, subcb) {
-                subcb();
-            },
-            //...
-            //Then I had to add an extra one to get the heartbeat messages
-            // in the messagebus.  Almost definitely not the best idea...
             function (_, subcb) {
                 var c = _.cluster;
                 var r0 = c.peers['raft-0'];
@@ -181,8 +188,8 @@ test('elect initial leader', function (t) {
                 //Now it should be the leader...
                 t.equal(r0.id, r0.leaderId);
                 assert.ok(r0.leaderTimeout > 2);
-                t.equal(1, r0.currentTerm);
-                t.equal(r0.id, r0.votedFor);
+                t.equal(1, r0.currentTerm());
+                t.equal(r0.id, r0.votedFor());
                 //The heartbeats to assume leadership...
                 t.equal(2, Object.keys(r0.outstandingMessages).length);
                 t.equal('leader', r0.state);
@@ -193,9 +200,9 @@ test('elect initial leader', function (t) {
                 r0.peers.forEach(function (p) {
                     var peer = c.peers[p];
                     t.equal(undefined, peer.leaderId); //Not until heartbeats.
-                    t.equal('raft-0', peer.votedFor);
+                    t.equal('raft-0', peer.votedFor());
                     t.ok(peer.leaderTimeout > 2);
-                    t.equal(1, peer.currentTerm);
+                    t.equal(1, peer.currentTerm());
                     t.equal('follower', peer.state);
                 });
 

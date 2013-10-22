@@ -2,6 +2,7 @@
 
 var assert = require('assert-plus');
 var MemLog = require('./memlog');
+var MemProps = require('./memprops');
 var MessageBus = require('./messagebus');
 var Raft = require('../../lib/raft');
 var StateMachine = require('./statemachine');
@@ -31,6 +32,15 @@ function memRaft(opts, cb) {
             function initMemLog(_, subcb) {
                 _.clog = new MemLog({ 'log': log });
                 _.clog.on('ready', subcb);
+            },
+            function initMemProps(_, subcb) {
+                _.properties = new MemProps({
+                    'log': log,
+                    'props': {
+                        'currentTerm': 0
+                    }
+                });
+                _.properties.on('ready', subcb);
             },
             function initRaft(_, subcb) {
                 raft = new Raft(opts);
