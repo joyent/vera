@@ -59,11 +59,12 @@ test('request/reply', function (t) {
         },
         function (_, subcb) {
             var messageId;
+            var responseCalled = false;
             function onResponse(err, gMessageId, from, res) {
                 t.equal(1, peers['0'].appendEntriesCalled);
                 t.equal(messageId, gMessageId);
                 t.equal('0', from);
-                subcb();
+                responseCalled = true;
             }
 
             t.equal(0, peers['0'].appendEntriesCalled);
@@ -72,7 +73,10 @@ test('request/reply', function (t) {
 
             process.nextTick(function () {
                 t.equal(1, Object.keys(mb.messages).length);
-                mb.tick();
+                mb.tick(function () {
+                    t.ok(responseCalled);
+                    subcb();
+                });
             });
         }
     ];

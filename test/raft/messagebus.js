@@ -92,19 +92,30 @@ MessageBus.prototype.cancel = function (messageId) {
 };
 
 
-MessageBus.prototype.tick = function () {
+//Causes all messages to be delivered, and the next batch held.  In the real
+// implementation, there shouldn't be any such thing as a 'tick' messages are
+// delivered when they come.
+MessageBus.prototype.tick = function (cb) {
+    assert.func(cb, 'cb');
+
     var self = this;
-    Object.keys(self.messages).forEach(function (k) {
+    var responses = 0;
+    var thisBatch = Object.keys(self.messages);
+    var total = thisBatch.length;
+    thisBatch.forEach(function (k) {
         var m = self.messages[k];
         var p = self.peers[m.to];
 
         function onResponse(err, res) {
-            //Block on incoming...
-            //TODO: Should we enqueue on response, and deliver on next tick or
-            // deliver immediately?
+            //Block on incoming here...
             if (self.messages[k] !== undefined) {
+                //Can cause more messages to be enqueued.
                 m.cb(err, k, m.to, res);
                 delete self.messages[k];
+            }
+            ++responses;
+            if (responses === total) {
+                return (cb(null));
             }
         }
 

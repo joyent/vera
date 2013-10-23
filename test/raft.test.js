@@ -46,7 +46,7 @@ test('init mem cluster of 3', function (t) {
     vasync.pipeline({
         arg: {},
         funcs: [
-            function (_, subcb) {
+            function init(_, subcb) {
                 var opts = {
                     'log': LOG,
                     'size': 3
@@ -56,7 +56,7 @@ test('init mem cluster of 3', function (t) {
                     subcb();
                 });
             },
-            function (_, subcb) {
+            function checkCluster(_, subcb) {
                 var c = _.cluster;
                 assert.object(c.messageBus, 'c.messageBus');
                 assert.object(c.peers, 'c.peers');
@@ -76,7 +76,7 @@ test('transition to candidate', function (t) {
     vasync.pipeline({
         arg: {},
         funcs: [
-            function (_, subcb) {
+            function init(_, subcb) {
                 var opts = {
                     'log': LOG,
                     'size': 3
@@ -86,7 +86,7 @@ test('transition to candidate', function (t) {
                     subcb();
                 });
             },
-            function (_, subcb) {
+            function toCandidate(_, subcb) {
                 var c = _.cluster;
                 var r0 = c.peers['raft-0'];
                 //Set timeout low for the follower and it should become a
@@ -98,7 +98,7 @@ test('transition to candidate', function (t) {
                     return (subcb(null));
                 });
             },
-            function (_, subcb) {
+            function checkCluster(_, subcb) {
                 var c = _.cluster;
                 var r0 = c.peers['raft-0'];
                 r0.removeAllListeners();
@@ -138,7 +138,7 @@ test('elect initial leader', function (t) {
     vasync.pipeline({
         arg: {},
         funcs: [
-            function (_, subcb) {
+            function init(_, subcb) {
                 var opts = {
                     'log': LOG,
                     'size': 3
@@ -148,7 +148,7 @@ test('elect initial leader', function (t) {
                     subcb();
                 });
             },
-            function (_, subcb) {
+            function toCandidate(_, subcb) {
                 var c = _.cluster;
                 var r0 = c.peers['raft-0'];
                 //Set timeout low for the follower and it should become a
@@ -171,17 +171,28 @@ test('elect initial leader', function (t) {
                     subcb();
                 });
             },
-            function (_, subcb) {
+            function toLeader(_, subcb) {
                 var c = _.cluster;
                 var r0 = c.peers['raft-0'];
+                var ticked = false;
+                var stateChanged = false;
+                function tryEnd() {
+                    if (stateChanged && ticked) {
+                        subcb();
+                    }
+                }
                 r0.on('stateChange', function (state) {
                     r0.removeAllListeners();
                     t.equal('leader', state);
-                    subcb();
+                    stateChanged = true;
+                    tryEnd();
                 });
-                c.messageBus.tick();
+                c.messageBus.tick(function () {
+                    ticked = true;
+                    tryEnd();
+                });
             },
-            function (_, subcb) {
+            function checkCluster(_, subcb) {
                 var c = _.cluster;
                 var r0 = c.peers['raft-0'];
 
@@ -193,11 +204,10 @@ test('elect initial leader', function (t) {
                 //The heartbeats to assume leadership...
                 t.equal(2, Object.keys(r0.outstandingMessages).length);
                 t.equal('leader', r0.state);
-                r0.peers.forEach(function (p) {
-                    t.equal(1, r0.peerIndexes[p]);
-                });
 
                 r0.peers.forEach(function (p) {
+                    t.equal(1, r0.peerIndexes[p]);
+
                     var peer = c.peers[p];
                     t.equal(undefined, peer.leaderId); //Not until heartbeats.
                     t.equal('raft-0', peer.votedFor());
@@ -206,9 +216,33 @@ test('elect initial leader', function (t) {
                     t.equal('follower', peer.state);
                 });
 
+                //Setting the leader timeout on the other two so that we can
+                // verify the timeout gets reset with the first appendEntries.
+                c.peers['raft-1'].leaderTimeout = 2;
+                c.peers['raft-2'].leaderTimeout = 2;
+
+                //Cause heartbeats to be delivered...
+                c.messageBus.tick(subcb);
+            },
+            function checkHeartbeatResults(_, subcb) {
+                var c = _.cluster;
+                var r0 = c.peers['raft-0'];
+
+                t.equal(0, Object.keys(c.messageBus.messages).length);
+
+                r0.peers.forEach(function (p) {
+                    t.equal(1, r0.peerIndexes[p]);
+
+                    var peer = c.peers[p];
+                    t.equal('raft-0', peer.leaderId);
+                    t.equal('raft-0', peer.votedFor());
+                    t.ok(peer.leaderTimeout > 2);
+                    t.equal(1, peer.currentTerm());
+                    t.equal('follower', peer.state);
+                });
+
                 subcb();
             }
-            //TODO: Deliver the heartbeats...
         ]
     }, function (err) {
         if (err) {
