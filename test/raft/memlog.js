@@ -41,6 +41,7 @@ function MemLog(opts) {
     // doing that, a fixed [0] ensures that the consistency check will always
     // succeed.
     self.clog = [ { 'term': 0, 'index': 0, 'command': 'noop' } ];
+    self.nextIndex = self.clog.length;
     self.ready = false;
 
     process.nextTick(function () {
@@ -126,6 +127,7 @@ MemLog.prototype.append = function (entries, cb) {
         self.clog[e.index] = e;
     }
 
+    self.nextIndex = self.clog.length;
     return (process.nextTick(cb));
 };
 

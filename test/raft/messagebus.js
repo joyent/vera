@@ -102,6 +102,9 @@ MessageBus.prototype.tick = function (cb) {
     var responses = 0;
     var thisBatch = Object.keys(self.messages);
     var total = thisBatch.length;
+    if (total === 0) {
+        return (process.nextTick(cb));
+    }
     thisBatch.forEach(function (k) {
         var m = self.messages[k];
         var p = self.peers[m.to];

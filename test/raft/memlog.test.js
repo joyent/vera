@@ -47,6 +47,7 @@ test('consistency check on 0, success', function (t) {
         function (_, subcb) {
             t.ok(ml.clog.length === 1);
             t.deepEqual(e(0, 0), ml.clog[0]);
+            t.equal(1, ml.nextIndex);
             ml.slice(0, function (err, entries) {
                 t.ok(entries.length === 1);
                 t.deepEqual([ e(0, 0) ], entries);
@@ -159,6 +160,7 @@ test('add two success', function (t) {
             t.deepEqual(e(0, 0), ml.clog[0]);
             t.deepEqual(e(1, 1), ml.clog[1]);
             t.deepEqual(e(2, 1), ml.clog[2]);
+            t.equal(3, ml.nextIndex);
             ml.slice(1, function (err, entries) {
                 t.ok(entries.length === 2);
                 t.deepEqual([ e(1, 1), e(2, 1) ], entries);
@@ -298,6 +300,7 @@ test('cause truncate from beginning', function (t) {
             t.ok(ml.clog.length === 2);
             t.deepEqual(e(0, 0), ml.clog[0]);
             t.deepEqual(e(1, 1), ml.clog[1]);
+            t.equal(2, ml.nextIndex);
             subcb();
         }
     ];
@@ -381,6 +384,7 @@ test('cause replace end, add one', function (t) {
             t.deepEqual(e(1, 0), ml.clog[1]);
             t.deepEqual(e(2, 3), ml.clog[2]);
             t.deepEqual(e(3, 3), ml.clog[3]);
+            t.equal(4, ml.nextIndex);
             subcb();
         }
     ];
