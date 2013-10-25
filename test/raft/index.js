@@ -5,6 +5,7 @@ var MemLog = require('./memlog');
 var MemProps = require('./memprops');
 var MessageBus = require('./messagebus');
 var Raft = require('../../lib/raft');
+var sprintf = require('extsprintf').sprintf;
 var StateMachine = require('./statemachine');
 var vasync = require('vasync');
 
@@ -55,16 +56,54 @@ function memRaft(opts, cb) {
     });
 }
 
+
+function clusterToString(c) {
+    var self = c || this;
+    var s = '';
+
+    //Peers
+    Object.keys(self.peers).map(function (p) {
+        var peer = self.peers[p];
+        s += sprintf(
+            '%s %9s term: %3d, t-out: %2d, leader: %s, rvp: %d\n',
+            peer.id, peer.state, peer.currentTerm(), peer.leaderTimeout,
+            peer.leaderId === undefined ? 'undefd' : peer.leaderId,
+            peer.requestVotesPipe.inProgress ? '1' : '0');
+    });
+
+    //Messages
+    s += sprintf(
+        'Messages:%s\n',
+        Object.keys(self.messageBus.messages).length === 0 ? ' (none)' : '');
+    Object.keys(self.messageBus.messages).forEach(function (mi) {
+        var m = self.messageBus.messages[mi];
+        var prefix = sprintf('%s -> %s: term %3d', m.from, m.to,
+                             m.message.term);
+        if (m.message.operation === 'requestVote') {
+            s += sprintf('  reqVote %s, logIndex: %3d, logTerm: %3d\n', prefix,
+                         m.message.lastLogIndex, m.message.lastLogTerm);
+        } else {
+            s += sprintf('  appEntr %s, leader: %s, commitIndex: %3d\n', prefix,
+                         m.message.leaderId, m.message.commitIndex);
+        }
+    });
+
+    return (s);
+}
+
+
 //Inits a set of raft peers, all connected with a single message bus.
 function cluster(opts, cb) {
     assert.object(opts);
     assert.object(opts.log, 'opts.log');
     assert.number(opts.size, 'opts.size');
+    assert.optionalBool(opts.electLeader, 'opts.electLeader');
 
     //Only putting everything in here so you can see what will be returned.
     var c = {
         'messageBus': undefined,
-        'peers': {}
+        'peers': {},
+        'toString': clusterToString
     };
     var log = opts.log;
     var peers = [];
@@ -99,13 +138,54 @@ function cluster(opts, cb) {
                         tryEnd();
                     });
                 });
+            },
+            function electLeader(_, subcb) {
+                if (opts.electLeader === undefined) {
+                    return (subcb());
+                }
+
+                var x = 0;
+                var s = '';
+                function tryOnce() {
+
+                    //Error out if this is taking "too long"
+                    s += sprintf('%d:\n%s\n', x, c.toString());
+                    if (x++ === 40) {
+                        console.error(s);
+                        return (subcb(
+                            new Error('leader election took too long')));
+                    }
+
+                    //End condition is when there is one leader and the rest
+                    // followers.
+                    var states = { 'leader': 0, 'follower': 0, 'candidate': 0 };
+                    Object.keys(c.peers).forEach(function (p) {
+                        ++states[c.peers[p].state];
+                    });
+                    if (states['leader'] === 1 &&
+                        states['follower'] === peers.length - 1) {
+                        return (subcb());
+                    }
+
+                    //Otherwise, move the cluster along...
+                    if (Object.keys(c.messageBus.messages).length > 0) {
+                        c.messageBus.tick(function () {
+                            return (process.nextTick(tryOnce));
+                        });
+                    } else {
+                        Object.keys(c.peers).forEach(function (p) {
+                            c.peers[p].tick();
+                        });
+                        return (process.nextTick(tryOnce));
+                    }
+                }
+                tryOnce();
             }
         ]
     }, function (err) {
         if (err) {
             return (cb(err));
         }
-
         cb(null, c);
     });
 }

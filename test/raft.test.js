@@ -251,3 +251,25 @@ test('elect initial leader', function (t) {
         t.done();
     });
 });
+
+
+test('random election', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            function init(_, subcb) {
+                var opts = {
+                    'log': LOG,
+                    'size': 3,
+                    'electLeader': true
+                };
+                memlib.cluster(opts, subcb);
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err.toString());
+        }
+        t.done();
+    });
+});
