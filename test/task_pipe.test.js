@@ -195,7 +195,7 @@ test('chain multiple', function (t) {
             setTimeout(function () {
                 taskLog.push(opts.map(function (x) { return ('2-' + x); }));
                 cb();
-            }, 7);
+            }, 70);
         },
         'choose': function (arr) {
             return (1);
@@ -208,7 +208,7 @@ test('chain multiple', function (t) {
             setTimeout(function () {
                 taskLog.push(opts.map(function (x) { return ('1-' + x); }));
                 cb();
-            }, 10);
+            }, 100);
         },
         'choose': function (arr) {
             return (2);
@@ -235,21 +235,21 @@ test('chain multiple', function (t) {
             function check(_, subcb) {
                 //Explanation:
                 t.deepEqual([
-                    //10 ms: 0 and 1 from one, enqueue both to two.
+                    //100 ms: 0 and 1 from one, enqueue both to two.
                     [ '1-0', '1-1' ],
-                    //17 ms: 0 consumed from two.
+                    //170 ms: 0 consumed from two.
                     [ '2-0' ],
-                    //20 ms: 2 and 3 from one, enqueue both to two.
+                    //200 ms: 2 and 3 from one, enqueue both to two.
                     [ '1-2', '1-3' ],
-                    //24 ms: 1 consumed from two.
+                    //240 ms: 1 consumed from two.
                     [ '2-1' ],
-                    //30 ms: 4 from one, enqueue to two.
+                    //300 ms: 4 from one, enqueue to two.
                     [ '1-4' ],
-                    //31 ms: 2 consumed from two.
+                    //310 ms: 2 consumed from two.
                     [ '2-2' ],
-                    //38 ms: 3 consumed from two.
+                    //380 ms: 3 consumed from two.
                     [ '2-3' ],
-                    //45 ms: 4 consumed from two.
+                    //450 ms: 4 consumed from two.
                     [ '2-4' ]
                 ], taskLog);
                 subcb();

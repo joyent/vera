@@ -11,7 +11,7 @@ cd deps/javascriptlint && make install && cd -
 
 JSL=deps/javascriptlint/build/install/jsl
 JSSTYLE=deps/jsstyle/jsstyle
-JS_FILES=$(echo $(ls *.js; find lib test -name '*.js') | tr '\n' ' ')
+JS_FILES=$(echo $(ls *.js; find bin lib test -name '*.js') | tr '\n' ' ')
 
 $JSL --nologo --nosummary --conf=./tools/jsl.node.conf $JS_FILES
 if [[ $? != 0 ]]; then

@@ -3,6 +3,7 @@
 var bunyan = require('bunyan');
 var getopt = require('posix-getopt');
 var MemRaft = require('../test/raft');
+var path = require('path');
 var sprintf = require('extsprintf').sprintf;
 
 var LOG = bunyan.createLogger({
@@ -10,6 +11,10 @@ var LOG = bunyan.createLogger({
     name: 'random-memory-raft',
     stream: process.stdout
 });
+
+
+///--- Opts parsing
+
 
 function parseOptions() {
     var option;
@@ -30,6 +35,21 @@ function parseOptions() {
 
     return (opts);
 }
+
+
+function usage(msg) {
+    if (msg) {
+        console.error(msg);
+    }
+    var str  = 'usage: ' + path.basename(process.argv[1]);
+    str += ' [-s cluster size]';
+    console.error(str);
+    process.exit(1);
+}
+
+
+
+///--- Main
 
 var _opts = parseOptions();
 _opts.log = LOG;
