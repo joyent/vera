@@ -21,10 +21,10 @@ var LOG = bunyan.createLogger({
 
 ///--- Tests
 
-
 test('single task', function (t) {
     var taskLog = [];
     var taskPipe = new TaskPipe({
+        'name': 'tp',
         'func': function (opts, cb) {
             assert.arrayOfString(opts);
             assert.ok(opts.length === 1);
@@ -56,6 +56,7 @@ test('single task', function (t) {
 test('multiple tasks', function (t) {
     var taskLog = [];
     var taskPipe = new TaskPipe({
+        'name': 'tp',
         'func': function (opts, cb) {
             assert.arrayOfString(opts);
             assert.ok(opts.length === 1);
@@ -97,6 +98,7 @@ test('multiple tasks', function (t) {
 test('consume multiple', function (t) {
     var taskLog = [];
     var taskPipe = new TaskPipe({
+        'name': 'tp',
         'func': function (opts, cb) {
             assert.arrayOfString(opts);
             assert.ok(opts.length === 2);
@@ -143,6 +145,7 @@ test('consume multiple', function (t) {
 test('chain one', function (t) {
     var taskLog = [];
     var taskPipeTwo = new TaskPipe({
+        'name': 'tp-2',
         'func': function (opts, cb) {
             assert.arrayOfString(opts);
             t.equal(1, opts.length);
@@ -151,6 +154,7 @@ test('chain one', function (t) {
         }
     });
     var taskPipeOne = new TaskPipe({
+        'name': 'tp-1',
         'func': function (opts, cb) {
             assert.arrayOfString(opts);
             t.equal(1, opts.length);
@@ -181,9 +185,11 @@ test('chain one', function (t) {
 
 //Unfortunately, this test works by timing.  There's a possibility that it will
 // break at some point.  If/when it does, we'll have to rewrite.
+//TODO: This does break on occasion... need to ^^
 test('chain multiple', function (t) {
     var taskLog = [];
     var taskPipeTwo = new TaskPipe({
+        'name': 'tp-2',
         'func': function (opts, cb) {
             assert.arrayOfString(opts);
             setTimeout(function () {
@@ -196,6 +202,7 @@ test('chain multiple', function (t) {
         }
     });
     var taskPipeOne = new TaskPipe({
+        'name': 'tp-1',
         'func': function (opts, cb) {
             assert.arrayOfString(opts);
             setTimeout(function () {
@@ -260,12 +267,14 @@ test('chain multiple', function (t) {
 test('chain break', function (t) {
     var reachedTwo = false;
     var taskPipeTwo = new TaskPipe({
+        'name': 'tp-2',
         'func': function (opts, cb) {
             reachedTwo = true;
             cb();
         }
     });
     var taskPipeOne = new TaskPipe({
+        'name': 'tp-1',
         'func': function (opts, cb) {
             var e = new Error('ahhhhhhh!');
             e.name = 'OneError';
@@ -286,6 +295,74 @@ test('chain break', function (t) {
         }
         t.equal('OneError', err.name);
         t.ok(reachedTwo === false);
+        t.done();
+    });
+});
+
+
+test('nextTick callback', function (t) {
+    var taskPipeOne = new TaskPipe({
+        'name': 'tp-1',
+        'func': function (opts, cb) {
+            process.nextTick(cb);
+        },
+        'next': taskPipeTwo
+    });
+    var taskPipeTwo = new TaskPipe({
+        'name': 'tp-2',
+        'func': function (opts, cb) {
+            process.nextTick(cb);
+        }
+    });
+    taskPipeOne.next = taskPipeTwo;
+    vasync.pipeline({
+        args: {},
+        funcs: [
+            function append(_, subcb) {
+                taskPipeOne.append('0', subcb);
+            },
+            function appendAgain(_, subcb) {
+                taskPipeOne.append('0', subcb);
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('immediate callback', function (t) {
+    var taskPipeOne = new TaskPipe({
+        'name': 'tp-1',
+        'func': function (opts, cb) {
+            cb();
+        },
+        'next': taskPipeTwo
+    });
+    var taskPipeTwo = new TaskPipe({
+        'name': 'tp-2',
+        'func': function (opts, cb) {
+            cb();
+        }
+    });
+    taskPipeOne.next = taskPipeTwo;
+    vasync.pipeline({
+        args: {},
+        funcs: [
+            function append(_, subcb) {
+                taskPipeOne.append('0', subcb);
+            },
+            function appendAgain(_, subcb) {
+                taskPipeOne.append('0', subcb);
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
         t.done();
     });
 });
