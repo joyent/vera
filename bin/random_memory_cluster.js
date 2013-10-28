@@ -60,7 +60,7 @@ process.stdin.setEncoding('utf8');
 MemRaft.cluster(_opts, function (err, cluster) {
     var count = 0;
     function next() {
-        console.log(sprintf('%d:\n%s\n', count, cluster.toString()));
+        console.log(sprintf('%d:\n%s', count, cluster.toString()));
 
         ++count;
         if (count % 5 === 0) {
@@ -75,17 +75,7 @@ MemRaft.cluster(_opts, function (err, cluster) {
             return;
         }
 
-        //Taken from the test/raft/index.js
-        if (Object.keys(cluster.messageBus.messages).length > 0) {
-            cluster.messageBus.tick(function () {
-                return (process.nextTick(next));
-            });
-        } else {
-            Object.keys(cluster.peers).forEach(function (p) {
-                cluster.peers[p].tick();
-            });
-            return (process.nextTick(next));
-        }
+        cluster.tick(next);
     }
     next();
 });

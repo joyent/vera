@@ -57,6 +57,42 @@ function memRaft(opts, cb) {
 }
 
 
+function getLeader(c) {
+    var self = c || this;
+    var leader;
+    Object.keys(self.peers).map(function (p) {
+        var peer = self.peers[p];
+        if (peer.state === 'leader') {
+            if (leader !== undefined) {
+                console.error(clusterToString(c));
+                throw new Error('Multiple leaders detected');
+            }
+            leader = peer;
+        }
+    });
+    return (leader);
+}
+
+
+function tick(c, cb) {
+    if ((typeof (c)) === 'function') {
+        cb = c;
+        c = undefined;
+    }
+    var self = c || this;
+    if (Object.keys(self.messageBus.messages).length > 0) {
+        self.messageBus.tick(function () {
+            return (process.nextTick(cb));
+        });
+    } else {
+        Object.keys(self.peers).forEach(function (p) {
+            self.peers[p].tick();
+        });
+        return (process.nextTick(cb));
+    }
+}
+
+
 function clusterToString(c) {
     var self = c || this;
     var s = '';
@@ -65,10 +101,10 @@ function clusterToString(c) {
     Object.keys(self.peers).map(function (p) {
         var peer = self.peers[p];
         s += sprintf(
-            '%s %9s term: %3d, t-out: %2d, leader: %s, rvp: %d\n',
+            '%s %9s term: %3d, t-out: %2d, leader: %s, commitIdx: %d\n',
             peer.id, peer.state, peer.currentTerm(), peer.leaderTimeout,
             peer.leaderId === undefined ? 'undefd' : peer.leaderId,
-            peer.requestVotesPipe.inProgress ? '1' : '0');
+            peer.stateMachine.commitIndex);
     });
 
     //Messages
@@ -83,8 +119,9 @@ function clusterToString(c) {
             s += sprintf('  reqVote %s, logIndex: %3d, logTerm: %3d\n', prefix,
                          m.message.lastLogIndex, m.message.lastLogTerm);
         } else {
-            s += sprintf('  appEntr %s, leader: %s, commitIndex: %3d\n', prefix,
-                         m.message.leaderId, m.message.commitIndex);
+            s += sprintf('  appEntr %s, leader: %s, commitIndex: %3d,' +
+                         ' nentries: %3d\n', prefix, m.message.leaderId,
+                         m.message.commitIndex, m.message.entries.length);
         }
     });
 
@@ -103,6 +140,8 @@ function cluster(opts, cb) {
     var c = {
         'messageBus': undefined,
         'peers': {},
+        'getLeader': getLeader,
+        'tick': tick,
         'toString': clusterToString
     };
     var log = opts.log;
@@ -140,7 +179,8 @@ function cluster(opts, cb) {
                 });
             },
             function electLeader(_, subcb) {
-                if (opts.electLeader === undefined) {
+                if (opts.electLeader === undefined ||
+                    opts.electLeader === false) {
                     return (subcb());
                 }
 
@@ -148,9 +188,13 @@ function cluster(opts, cb) {
                 var s = '';
                 function tryOnce() {
 
-                    //Error out if this is taking "too long"
+                    //Error out if this is taking "too long".  This is really
+                    // just a safety valve so I don't have infinite loops.
+                    // Alternatively, I could just set the election timeout
+                    // really low on raft-0, but I might as well excercise
+                    // leader election as much as possible.
                     s += sprintf('%d:\n%s\n', x, c.toString());
-                    if (x++ === 40) {
+                    if (x++ === 1000) {
                         console.error(s);
                         return (subcb(
                             new Error('leader election took too long')));
@@ -168,16 +212,7 @@ function cluster(opts, cb) {
                     }
 
                     //Otherwise, move the cluster along...
-                    if (Object.keys(c.messageBus.messages).length > 0) {
-                        c.messageBus.tick(function () {
-                            return (process.nextTick(tryOnce));
-                        });
-                    } else {
-                        Object.keys(c.peers).forEach(function (p) {
-                            c.peers[p].tick();
-                        });
-                        return (process.nextTick(tryOnce));
-                    }
+                    c.tick(tryOnce);
                 }
                 tryOnce();
             }

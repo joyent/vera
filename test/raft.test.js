@@ -39,6 +39,28 @@ function checkInitalRaft(raft, t) {
 }
 
 
+function initCluster(opts) {
+    opts = opts || {};
+    assert.object(opts, 'opts');
+    assert.optionalNumber(opts.size, 'opts.size');
+    assert.optionalBool(opts.electLeader, 'opts.electLeader');
+
+    opts.log = opts.log || LOG;
+    opts.size = opts.size !== undefined ? opts.size : 3;
+    opts.electLeader = opts.electLeader !== undefined ? opts.electLeader : true;
+
+    return (function (_, subcb) {
+        memlib.cluster(opts, function (err, cluster) {
+            if (err) {
+                return (subcb(err));
+            }
+            _.cluster = cluster;
+            return (subcb(null, cluster));
+        });
+    });
+}
+
+
 
 ///--- Tests
 
@@ -46,16 +68,7 @@ test('init mem cluster of 3', function (t) {
     vasync.pipeline({
         arg: {},
         funcs: [
-            function init(_, subcb) {
-                var opts = {
-                    'log': LOG,
-                    'size': 3
-                };
-                memlib.cluster(opts, function (err, cluster) {
-                    _.cluster = cluster;
-                    subcb();
-                });
-            },
+            initCluster({ 'electLeader': false }),
             function checkCluster(_, subcb) {
                 var c = _.cluster;
                 assert.object(c.messageBus, 'c.messageBus');
@@ -76,16 +89,7 @@ test('transition to candidate', function (t) {
     vasync.pipeline({
         arg: {},
         funcs: [
-            function init(_, subcb) {
-                var opts = {
-                    'log': LOG,
-                    'size': 3
-                };
-                memlib.cluster(opts, function (err, cluster) {
-                    _.cluster = cluster;
-                    subcb();
-                });
-            },
+            initCluster({ 'electLeader': false }),
             function toCandidate(_, subcb) {
                 var c = _.cluster;
                 var r0 = c.peers['raft-0'];
@@ -138,16 +142,7 @@ test('elect initial leader', function (t) {
     vasync.pipeline({
         arg: {},
         funcs: [
-            function init(_, subcb) {
-                var opts = {
-                    'log': LOG,
-                    'size': 3
-                };
-                memlib.cluster(opts, function (err, cluster) {
-                    _.cluster = cluster;
-                    subcb();
-                });
-            },
+            initCluster({ 'electLeader': false }),
             function toCandidate(_, subcb) {
                 var c = _.cluster;
                 var r0 = c.peers['raft-0'];
@@ -257,13 +252,99 @@ test('random election', function (t) {
     vasync.pipeline({
         arg: {},
         funcs: [
-            function init(_, subcb) {
-                var opts = {
-                    'log': LOG,
-                    'size': 3,
-                    'electLeader': true
-                };
-                memlib.cluster(opts, subcb);
+            initCluster()
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err.toString());
+        }
+        t.done();
+    });
+});
+
+
+test('one client request', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initCluster(),
+            function clientRequest(_, subcb) {
+                var c = _.cluster;
+                var l = c.getLeader();
+
+                var responseCalled = false;
+                function onResponse(err, res) {
+                    responseCalled = true;
+
+                    //Check the Response
+                    t.ok(res.success);
+                    t.equal(1, res.entryIndex);
+                    t.equal(l.currentTerm(), res.entryTerm);
+                    t.equal(l.id, res.leaderId);
+
+                    //Check the leader
+                    t.equal(2, l.clog.nextIndex);
+                    t.equal('foo', l.clog.clog[1].command);
+                    t.equal('foo', l.stateMachine.data);
+                    t.equal(1, l.stateMachine.commitIndex);
+
+                    //Check the peers (just append to the log)
+                    l.peers.forEach(function (p) {
+                        var peer = c.peers[p];
+                        t.equal(2, peer.clog.nextIndex);
+                        t.equal('foo', peer.clog.clog[1].command);
+                        t.equal(undefined, peer.stateMachine.data);
+                        t.equal(0, peer.stateMachine.commitIndex);
+                    });
+
+                    subcb();
+                }
+
+                l.clientRequest({ 'command': 'foo' }, onResponse);
+
+                //Tick the state machine until we get a response.
+                var x = 0;
+                function next() {
+                    //Safety net...
+                    if (x++ === 100) {
+                        subcb(new Error('didn\'t complete client request in ' +
+                                        '100 ticks'));
+                    }
+                    if (!responseCalled) {
+                        c.tick(next);
+                    }
+                }
+                next();
+            },
+            function propagateCommitIndex(_, subcb) {
+                var c = _.cluster;
+                var l = c.getLeader();
+                var apeer = c.peers[l.peers[0]];
+
+                function onIndexChange() {
+                    //Check Peers
+                    l.peers.forEach(function (p) {
+                        var peer = c.peers[p];
+                        t.equal(2, peer.clog.nextIndex);
+                        t.equal('foo', peer.clog.clog[1].command);
+                        t.equal('foo', peer.stateMachine.data);
+                        t.equal(1, peer.stateMachine.commitIndex);
+                    });
+                    return (subcb());
+                }
+
+                var x = 0;
+                function next() {
+                    if (x++ === 100) {
+                        return (subcb(new Error('entry never propagated to ' +
+                                                'peer state machine')));
+                    }
+                    if (apeer.stateMachine.commitIndex === 1) {
+                        return (onIndexChange());
+                    }
+                    c.tick(next);
+                }
+                next();
             }
         ]
     }, function (err) {

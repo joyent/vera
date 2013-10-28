@@ -85,6 +85,7 @@ MemLog.prototype.append = function (entries, cb) {
     if (entries.length === 1 && entry.index === undefined) {
         entry.index = self.clog.length;
         self.clog.push(entry);
+        self.nextIndex = self.clog.length;
         return (process.nextTick(cb.bind(null, null, entry)));
     }
 
