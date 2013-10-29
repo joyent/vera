@@ -201,7 +201,7 @@ test('elect initial leader', function (t) {
                 t.equal('leader', r0.state);
 
                 r0.peers.forEach(function (p) {
-                    t.equal(1, r0.peerIndexes[p]);
+                    t.equal(1, r0.peerNextIndexes[p]);
 
                     var peer = c.peers[p];
                     t.equal(undefined, peer.leaderId); //Not until heartbeats.
@@ -226,7 +226,7 @@ test('elect initial leader', function (t) {
                 t.equal(0, Object.keys(c.messageBus.messages).length);
 
                 r0.peers.forEach(function (p) {
-                    t.equal(1, r0.peerIndexes[p]);
+                    t.equal(1, r0.peerNextIndexes[p]);
 
                     var peer = c.peers[p];
                     t.equal('raft-0', peer.leaderId);
