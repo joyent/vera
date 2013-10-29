@@ -4,7 +4,7 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var helper = require('./helper.js');
 var fs = require('fs');
-var memlib = require('./raft');
+var memraft = require('./memraft');
 var vasync = require('vasync');
 
 
@@ -50,7 +50,7 @@ function initCluster(opts) {
     opts.electLeader = opts.electLeader !== undefined ? opts.electLeader : true;
 
     return (function (_, subcb) {
-        memlib.cluster(opts, function (err, cluster) {
+        memraft.cluster(opts, function (err, cluster) {
             if (err) {
                 return (subcb(err));
             }
