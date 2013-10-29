@@ -109,6 +109,7 @@ test('append one at a time', function (t) {
                 }
                 t.equal(1, entry.index);
                 t.deepEqual(ml.last(), entry);
+                t.equal(2, ml.nextIndex);
                 subcb();
             });
         },
@@ -127,6 +128,7 @@ test('append one at a time', function (t) {
             t.deepEqual(e(0, 0), ml.clog[0]);
             t.deepEqual(e(1, 2), ml.clog[1]);
             t.deepEqual(e(2, 2), ml.clog[2]);
+            t.equal(3, ml.nextIndex);
             subcb();
         }
     ];
