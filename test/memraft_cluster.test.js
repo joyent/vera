@@ -3,7 +3,6 @@
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var helper = require('./helper.js');
-var fs = require('fs');
 var memraft = require('./memraft');
 var vasync = require('vasync');
 

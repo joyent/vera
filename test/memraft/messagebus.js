@@ -22,12 +22,15 @@ function MessageBus(opts) {
     assert.object(opts, 'opts');
     assert.object(opts.log, 'opts.log');
     assert.optionalObject(opts.peers, 'opts.peers');
+    assert.optionalBool(opts.blackholeUnknown, 'opts.blackholeUnknown');
 
     var self = this;
     self.log = opts.log;
     self.peers = opts.peers || {};
     self.messageId = 0;
     self.messages = {};
+    self.blackholeUnknown = opts.blackholeUnknown === undefined ? false :
+        opts.blackholeUnknown;
 
     process.nextTick(function () {
         self.ready = true;
@@ -49,6 +52,10 @@ MessageBus.prototype.send = function (from, to, message, cb) {
     assert.func(cb, 'cb');
 
     var self = this;
+    if (self.peers[to] === null || self.peers[to] === undefined &&
+        self.blackholeUnknown) {
+        return (self.messageId++);
+    }
     if (self.peers[to] === null || self.peers[to] === undefined) {
         throw new error.InternalError(sprintf('peer %s isn\'t known', to));
     }

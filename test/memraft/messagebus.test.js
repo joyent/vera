@@ -53,11 +53,11 @@ test('request/reply', function (t) {
     var mb;
     var peers = getTopology(2);
     var funcs = [
-        function (_, subcb) {
+        function init(_, subcb) {
             mb = new MessageBus({ 'log': LOG, 'peers': peers });
             mb.on('ready', subcb);
         },
-        function (_, subcb) {
+        function reqrep(_, subcb) {
             var messageId;
             var responseCalled = false;
             function onResponse(err, gMessageId, from, res) {
@@ -78,6 +78,66 @@ test('request/reply', function (t) {
                     subcb();
                 });
             });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('unknown peer', function (t) {
+    var mb;
+    var peers = getTopology(2);
+    var funcs = [
+        function init(_, subcb) {
+            mb = new MessageBus({ 'log': LOG, 'peers': peers });
+            mb.on('ready', subcb);
+        },
+        function causeError(_, subcb) {
+            try {
+                mb.send('me', '2', { 'operation': 'fake' }, function () { });
+            } catch (err) {
+                t.equal('InternalError', err.name);
+            }
+            return (subcb());
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('blackhole unknown', function (t) {
+    var mb;
+    var peers = getTopology(2);
+    var funcs = [
+        function init(_, subcb) {
+            mb = new MessageBus({ 'log': LOG, 'peers': peers,
+                                  'blackholeUnknown': true });
+            mb.on('ready', subcb);
+        },
+        function causeError(_, subcb) {
+            t.equal(0, mb.messageId);
+            try {
+                mb.send('me', '2', { 'operation': 'fake' }, function () { });
+            } catch (err) {
+                t.fail(err);
+            }
+            t.equal(1, mb.messageId);
+            t.equal(0, Object.keys(mb.messages).length);
+            return (subcb());
         }
     ];
     vasync.pipeline({

@@ -13,19 +13,27 @@ var vasync = require('vasync');
 
 ///--- Funcs
 
-function memRaft(opts, cb) {
+function raft(opts, cb) {
     assert.object(opts);
     assert.object(opts.log, 'opts.log');
     assert.string(opts.id, 'opts.id');
     assert.arrayOfString(opts.peers, 'opts.peers');
-    assert.object(opts.messageBus, 'opts.messageBus');
+    assert.optionalObject(opts.messageBus, 'opts.messageBus');
 
     var log = opts.log;
 
-    var raft;
+    var r;
     vasync.pipeline({
         arg: opts,
         funcs: [
+            function initMessageBus(_, subcb) {
+                if (_.messageBus === undefined) {
+                    _.messageBus = new MessageBus({ 'log': log });
+                    _.messageBus.on('ready', subcb);
+                } else {
+                    subcb();
+                }
+            },
             function initStateMachine(_, subcb) {
                 _.stateMachine = new StateMachine({ 'log': log });
                 _.stateMachine.on('ready', subcb);
@@ -44,7 +52,7 @@ function memRaft(opts, cb) {
                 _.properties.on('ready', subcb);
             },
             function initRaft(_, subcb) {
-                raft = new Raft(opts);
+                r = new Raft(opts);
                 subcb();
             }
         ]
@@ -52,7 +60,7 @@ function memRaft(opts, cb) {
         if (err) {
             return (cb(err));
         }
-        return (cb(null, raft));
+        return (cb(null, r));
     });
 }
 
@@ -172,7 +180,7 @@ function cluster(opts, cb) {
                         'peers': peers,
                         'messageBus': c.messageBus
                     };
-                    memRaft(o, function (err, peer) {
+                    raft(o, function (err, peer) {
                         c.peers[p] = peer;
                         tryEnd();
                     });
@@ -229,5 +237,6 @@ function cluster(opts, cb) {
 
 ///--- Exports
 module.exports = {
-    'cluster': cluster
+    'cluster': cluster,
+    'raft': raft
 };
