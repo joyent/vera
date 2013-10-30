@@ -653,3 +653,251 @@ test('candidate not in known peers', function (t) {
         t.done();
     });
 });
+
+
+//Note that in node, nothing is actually concurrent.  What I mean by this is to
+// try and simulate what it would look like for 2 request votes to be invoked as
+// close in time as possible (say if we had an http server in front and two
+// requests came in "at the same time").  Since "next tick" is as close as we
+// can get in node, this should be a fair test.  Just calling them might also
+// be sufficient.
+test('concurrent requests, same term', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function vote(_, subcb) {
+                var r = _.raft;
+
+                var responses = 0;
+                function tryEnd() {
+                    if (responses === 2) {
+                        t.equal('raft-1', r.votedFor());
+                        t.equal(3, r.currentTerm());
+                        t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                        t.equal('follower', r.state);
+
+                        return (subcb());
+                    }
+                }
+
+                //Fortunately, node is predictable and will call this first
+                // since it was enqueued to next tick first.
+                process.nextTick(function () {
+                    r.requestVote(rv({
+                        'candidateId': 'raft-1',
+                        'term': 3,
+                        'lastLogIndex': 3,
+                        'lastLogTerm': 3
+                    }), function (err, res) {
+                        ++responses;
+                        t.ok(res);
+                        t.ok(res.voteGranted);
+                        tryEnd();
+                    });
+                });
+
+                process.nextTick(function () {
+                    r.requestVote(rv({
+                        'candidateId': 'raft-2',
+                        'term': 3,
+                        'lastLogIndex': 3,
+                        'lastLogTerm': 3
+                    }), function (err, res) {
+                        ++responses;
+                        t.ok(res);
+                        t.ok(res.voteGranted === false);
+                        tryEnd();
+                    });
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+//The difference between this and the last is that this one will cause the
+// term to increase.  Is should be the same as the above...
+test('concurrent requests, increasing terms', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function vote(_, subcb) {
+                var r = _.raft;
+
+                var responses = 0;
+                function tryEnd() {
+                    if (responses === 2) {
+                        t.equal('raft-1', r.votedFor());
+                        t.equal(4, r.currentTerm());
+                        t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                        t.equal('follower', r.state);
+
+                        return (subcb());
+                    }
+                }
+
+                //Fortunately, node is predictable and will call this first
+                // since it was enqueued to next tick first.
+                process.nextTick(function () {
+                    r.requestVote(rv({
+                        'candidateId': 'raft-1',
+                        'term': 4,
+                        'lastLogIndex': 3,
+                        'lastLogTerm': 3
+                    }), function (err, res) {
+                        ++responses;
+                        t.ok(res);
+                        t.ok(res.voteGranted);
+                        tryEnd();
+                    });
+                });
+
+                process.nextTick(function () {
+                    r.requestVote(rv({
+                        'candidateId': 'raft-2',
+                        'term': 4,
+                        'lastLogIndex': 3,
+                        'lastLogTerm': 3
+                    }), function (err, res) {
+                        ++responses;
+                        t.ok(res);
+                        t.ok(res.voteGranted === false);
+                        tryEnd();
+                    });
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('concurrent requests, latter increasing term', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function vote(_, subcb) {
+                var r = _.raft;
+
+                var responses = 0;
+                function tryEnd() {
+                    if (responses === 2) {
+                        t.equal('raft-2', r.votedFor());
+                        t.equal(4, r.currentTerm());
+                        t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                        t.equal('follower', r.state);
+
+                        return (subcb());
+                    }
+                }
+
+                //Fortunately, node is predictable and will call this first
+                // since it was enqueued to next tick first.
+                process.nextTick(function () {
+                    r.requestVote(rv({
+                        'candidateId': 'raft-1',
+                        'term': 3,
+                        'lastLogIndex': 3,
+                        'lastLogTerm': 3
+                    }), function (err, res) {
+                        ++responses;
+                        t.ok(res);
+                        t.ok(res.voteGranted);
+                        tryEnd();
+                    });
+                });
+
+                process.nextTick(function () {
+                    r.requestVote(rv({
+                        'candidateId': 'raft-2',
+                        'term': 4,
+                        'lastLogIndex': 3,
+                        'lastLogTerm': 3
+                    }), function (err, res) {
+                        ++responses;
+                        t.ok(res);
+                        t.ok(res.voteGranted);
+                        tryEnd();
+                    });
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('concurrent requests, former increasing term', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function vote(_, subcb) {
+                var r = _.raft;
+
+                var responses = 0;
+                function tryEnd() {
+                    if (responses === 2) {
+                        t.equal('raft-1', r.votedFor());
+                        t.equal(4, r.currentTerm());
+                        t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                        t.equal('follower', r.state);
+
+                        return (subcb());
+                    }
+                }
+
+                //Fortunately, node is predictable and will call this first
+                // since it was enqueued to next tick first.
+                process.nextTick(function () {
+                    r.requestVote(rv({
+                        'candidateId': 'raft-1',
+                        'term': 4,
+                        'lastLogIndex': 3,
+                        'lastLogTerm': 3
+                    }), function (err, res) {
+                        ++responses;
+                        t.ok(res);
+                        t.ok(res.voteGranted);
+                        tryEnd();
+                    });
+                });
+
+                process.nextTick(function () {
+                    r.requestVote(rv({
+                        'candidateId': 'raft-2',
+                        'term': 3,
+                        'lastLogIndex': 3,
+                        'lastLogTerm': 3
+                    }), function (err, res) {
+                        ++responses;
+                        t.ok(res);
+                        t.ok(res.voteGranted === false);
+                        tryEnd();
+                    });
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
