@@ -32,7 +32,6 @@ function e(index, term) {
 }
 
 
-
 function initRaft(opts) {
     opts = opts || {};
     assert.object(opts, 'opts');
@@ -90,6 +89,7 @@ function rv(req) {
     req.lastLogTerm = req.lastLogTerm === undefined ? 0 : req.lastLogTerm;
     return (req);
 }
+
 
 
 ///--- Tests
