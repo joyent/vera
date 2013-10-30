@@ -94,8 +94,10 @@ MemLog.prototype.append = function (entries, cb) {
     if (centry === undefined || centry.term !== entry.term) {
         return (process.nextTick(cb.bind(
             null, new error.TermMismatchError(sprintf(
-                'at entry %d, command log term %d doesn\'t match %d',
-                entry.index, centry.term, entry.term)))));
+                'at entry %d, command log term %s doesn\'t match %d',
+                entry.index,
+                centry === undefined ? '[undefined]' : '' + entry.term,
+                entry.term)))));
     }
 
     //Sanity checks...

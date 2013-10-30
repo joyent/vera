@@ -515,3 +515,28 @@ test('term out of order', function (t) {
         t.done();
     });
 });
+
+
+test('append past end', function (t) {
+    var ml;
+    var funcs = [
+        function (_, subcb) {
+            ml = new MemLog({ 'log': LOG });
+            ml.on('ready', subcb);
+        },
+        function (_, subcb) {
+            ml.append([
+                e(5, 5),
+                e(6, 6)
+            ], subcb);
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs
+    }, function (err) {
+        if (!err || err.name !== 'TermMismatchError') {
+            t.fail('should have thrown an TermMismatchError');
+        }
+        t.done();
+    });
+});

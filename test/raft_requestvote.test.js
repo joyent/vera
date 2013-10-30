@@ -181,7 +181,7 @@ test('term out of date', function (t) {
                     t.equal(LOW_LEADER_TIMEOUT, r.leaderTimeout);
                     t.equal(term, r.currentTerm());
                     t.ok(undefined === r.votedFor());
-                    t.ok(undefined === r.leaderId);
+                    t.equal('raft-1', r.leaderId);
                     return (subcb());
                 });
             }
@@ -215,7 +215,7 @@ test('last log index not as up to date', function (t) {
                     t.equal(LOW_LEADER_TIMEOUT, r.leaderTimeout);
                     t.equal(term, r.currentTerm());
                     t.ok(undefined === r.votedFor());
-                    t.ok(undefined === r.leaderId);
+                    t.equal('raft-1', r.leaderId);
                     return (subcb());
                 });
             }
@@ -249,7 +249,7 @@ test('last log term not as up to date', function (t) {
                     t.equal(LOW_LEADER_TIMEOUT, r.leaderTimeout);
                     t.equal(term, r.currentTerm());
                     t.ok(undefined === r.votedFor());
-                    t.ok(undefined === r.leaderId);
+                    t.equal('raft-1', r.leaderId);
                     return (subcb());
                 });
             }

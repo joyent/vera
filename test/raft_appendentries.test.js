@@ -223,13 +223,259 @@ test('state after test init and log[0] heartbeat', function (t) {
 });
 
 
-//test('initial heartbeat (empty append, empty follower)', function (t) {
-//test('term out of date', function (t) {
-//test('new term, new leader', function (t) {
-//test('idempotent append', function (t) {
-//test('cause truncation', function (t) {
-//test('fail with term mismatch', function (t) {
-//test('fail with index too far ahead', function (t) {
+test('term out of date', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function append(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 2,
+                    'leaderId': 'raft-1',
+                    'commitIndex': 2
+                }), function (err, res) {
+                    t.ok(err);
+                    t.equal(err.name, 'InvalidTermError');
+
+                    t.ok(res);
+                    t.equal(3, res.term);
+                    t.ok(res.success === false);
+
+                    t.equal(3, r.currentTerm());
+                    t.ok(r.leaderTimeout === LOW_LEADER_TIMEOUT);
+                    t.equal('raft-1', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(4, r.clog.nextIndex);
+                    t.equal(4, r.clog.clog.length);
+                    t.equal(2, r.stateMachine.commitIndex);
+                    t.equal('command-2-2', r.stateMachine.data);
+                    return (subcb());
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('new term, new leader', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function append(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 4,
+                    'leaderId': 'raft-2',
+                    'commitIndex': 2
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(4, res.term);
+                    t.ok(res.success);
+
+                    t.equal(4, r.currentTerm());
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                    t.equal('raft-2', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(4, r.clog.nextIndex);
+                    t.equal(4, r.clog.clog.length);
+                    t.equal(2, r.stateMachine.commitIndex);
+                    t.equal('command-2-2', r.stateMachine.data);
+                    return (subcb());
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('idempotent append at end', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function append(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'commitIndex': 2,
+                    'entries': [ e(3, 3), e(4, 4) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(3, res.term);
+                    t.ok(res.success);
+                    return (subcb());
+                });
+            }, function appendAgain(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'commitIndex': 2,
+                    'entries': [ e(3, 3), e(4, 4) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(3, res.term);
+                    t.ok(res.success);
+
+                    t.equal(3, r.currentTerm());
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                    t.equal('raft-1', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(5, r.clog.nextIndex);
+                    t.equal(5, r.clog.clog.length);
+                    t.equal(2, r.stateMachine.commitIndex);
+                    t.equal('command-2-2', r.stateMachine.data);
+                    return (subcb());
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('cause truncation', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function append(_, subcb) {
+                var r = _.raft;
+                t.equal('command-3-3', r.clog.clog[3].command);
+                r.appendEntries(ae({
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'commitIndex': 2,
+                    'entries': [ e(2, 2), e(3, 4) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(3, res.term);
+                    t.ok(res.success);
+
+                    t.equal(3, r.currentTerm());
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                    t.equal('raft-1', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(4, r.clog.nextIndex);
+                    t.equal(4, r.clog.clog.length);
+                    t.equal(2, r.stateMachine.commitIndex);
+                    t.equal('command-2-2', r.stateMachine.data);
+                    t.equal('command-3-4', r.clog.clog[3].command);
+                    return (subcb());
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('consistency fail with term mismatch', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function append(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'commitIndex': 2,
+                    'entries': [ e(3, 4), e(4, 4) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(3, res.term);
+                    t.ok(res.success === false);
+
+                    t.ok(err);
+                    t.equal('TermMismatchError', err.name);
+
+                    t.equal(3, r.currentTerm());
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                    t.equal('raft-1', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(4, r.clog.nextIndex);
+                    t.equal(4, r.clog.clog.length);
+                    t.equal(2, r.stateMachine.commitIndex);
+                    t.equal('command-2-2', r.stateMachine.data);
+                    return (subcb());
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('consistency fail with index too far ahead', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function append(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'commitIndex': 2,
+                    'entries': [ e(5, 5), e(6, 6) ]
+                }), function (err, res) {
+                    console.log(err);
+                    console.log(res);
+
+                    t.ok(res);
+                    t.equal(3, res.term);
+                    t.ok(res.success === false);
+
+                    t.ok(err);
+                    t.equal('TermMismatchError', err.name);
+
+                    t.equal(3, r.currentTerm());
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                    t.equal('raft-1', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(4, r.clog.nextIndex);
+                    t.equal(4, r.clog.clog.length);
+                    t.equal(2, r.stateMachine.commitIndex);
+                    t.equal('command-2-2', r.stateMachine.data);
+                    return (subcb());
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
 //test('leader mismatch (a very bad thing)', function (t) {
 //test('two successful appends', function (t) {
 //test('previously voted in term, update term with append', function (t) {
