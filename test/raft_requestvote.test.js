@@ -543,7 +543,7 @@ test('step down from leader', function (t) {
                 var r = _.raft;
                 r.once('stateChange', function (state) {
                     r.transitionToLeader();
-                    subcb();
+                    return (subcb());
                 });
                 r.transitionToCandidate();
             },
@@ -583,10 +583,10 @@ test('step down from candidate', function (t) {
         arg: {},
         funcs: [
             initRaft(),
-            function becomeLeader(_, subcb) {
+            function becomeCandidate(_, subcb) {
                 var r = _.raft;
                 r.once('stateChange', function (state) {
-                    subcb();
+                    return (subcb());
                 });
                 r.transitionToCandidate();
             },
@@ -638,11 +638,14 @@ test('candidate not in known peers', function (t) {
                     t.equal(3, res.term);
                     t.ok(res.voteGranted === false);
 
+                    t.ok(err);
+                    t.equal('InvalidPeerError', err.name);
+
                     t.equal(undefined, r.votedFor());
                     t.equal(3, r.currentTerm());
                     t.ok(r.leaderTimeout === LOW_LEADER_TIMEOUT);
                     t.equal('follower', r.state);
-                    return (subcb(err));
+                    return (subcb());
                 });
             }
         ]
