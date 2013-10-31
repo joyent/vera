@@ -353,3 +353,120 @@ test('one client request', function (t) {
         t.done();
     });
 });
+
+
+//Just like in request vote, process.nextTick is the closest thing in node
+// that I'd call "parallel".
+test('parallel client requests', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initCluster(),
+            function clientRequest(_, subcb) {
+                var c = _.cluster;
+                var l = c.getLeader();
+
+                var responses = 0;
+                function tryEnd() {
+                    ++responses;
+                    if (responses === 2) {
+                        //Check the leader
+                        t.equal(3, l.clog.nextIndex);
+                        t.equal('foo', l.clog.clog[1].command);
+                        t.equal('bar', l.clog.clog[2].command);
+                        t.equal('bar', l.stateMachine.data);
+                        t.equal(2, l.stateMachine.commitIndex);
+
+                        //Check the peers (just append to the log)
+                        l.peers.forEach(function (p) {
+                            var peer = c.peers[p];
+                            t.equal(3, peer.clog.nextIndex);
+                            t.equal('foo', peer.clog.clog[1].command);
+                            t.equal('bar', peer.clog.clog[2].command);
+                            t.equal(undefined, peer.stateMachine.data);
+                            //Commit indexes still haven't been propagated.
+                            t.equal(0, peer.stateMachine.commitIndex);
+                        });
+                        subcb();
+                    }
+                }
+
+                function onFooResponse(err, res) {
+                    //Check the Response
+                    t.ok(res.success);
+                    t.equal(1, res.entryIndex);
+                    t.ok(l.currentTerm() >= res.entryTerm);
+                    t.equal(l.id, res.leaderId);
+
+                    tryEnd();
+                }
+
+                function onBarResponse(err, res) {
+                    //Check the Response
+                    t.ok(res.success);
+                    t.equal(2, res.entryIndex);
+                    t.equal(l.currentTerm(), res.entryTerm);
+                    t.equal(l.id, res.leaderId);
+
+                    tryEnd();
+                }
+
+                process.nextTick(function () {
+                    l.clientRequest({ 'command': 'foo' }, onFooResponse);
+                });
+
+                process.nextTick(function () {
+                    l.clientRequest({ 'command': 'bar' }, onBarResponse);
+                });
+
+                //Tick the state machine until we get responses.
+                var x = 0;
+                function next() {
+                    //Safety net...
+                    if (x++ === 100) {
+                        subcb(new Error('didn\'t complete client request in ' +
+                                        '100 ticks'));
+                    }
+                    if (responses < 2) {
+                        c.tick(next);
+                    }
+                }
+                next();
+            },
+            function propagateCommitIndex(_, subcb) {
+                var c = _.cluster;
+                var l = c.getLeader();
+                var apeer = c.peers[l.peers[0]];
+
+                function onIndexChange() {
+                    //Check Peers
+                    l.peers.forEach(function (p) {
+                        var peer = c.peers[p];
+                        t.equal(3, peer.clog.nextIndex);
+                        t.equal('bar', peer.stateMachine.data);
+                        t.equal(2, peer.stateMachine.commitIndex);
+                    });
+                    return (subcb());
+                }
+
+                var x = 0;
+                function next() {
+                    if (x++ === 100) {
+                        return (subcb(new Error('entry never propagated to ' +
+                                                'peer state machine')));
+                    }
+                    if (apeer.stateMachine.commitIndex === 2) {
+                        return (onIndexChange());
+                    }
+                    c.tick(next);
+                }
+                next();
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err.toString());
+        }
+        t.done();
+    });
+});
