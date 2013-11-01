@@ -24,13 +24,15 @@ var LOG = bunyan.createLogger({
 test('single task', function (t) {
     var taskLog = [];
     var taskPipe = new TaskPipe({
-        'name': 'tp',
-        'func': function (opts, cb) {
-            assert.arrayOfString(opts);
-            assert.ok(opts.length === 1);
-            taskLog.push(opts[0]);
-            process.nextTick(cb);
-        }
+        'tasks': [ {
+            'name': 'tp',
+            'func': function (opts, cb) {
+                assert.arrayOfString(opts);
+                assert.ok(opts.length === 1);
+                taskLog.push(opts[0]);
+                process.nextTick(cb);
+            }
+        } ]
     });
     vasync.pipeline({
         args: {},
@@ -56,13 +58,15 @@ test('single task', function (t) {
 test('multiple tasks', function (t) {
     var taskLog = [];
     var taskPipe = new TaskPipe({
-        'name': 'tp',
-        'func': function (opts, cb) {
-            assert.arrayOfString(opts);
-            assert.ok(opts.length === 1);
-            taskLog.push(opts[0]);
-            process.nextTick(cb);
-        }
+        'tasks': [ {
+            'name': 'tp',
+            'func': function (opts, cb) {
+                assert.arrayOfString(opts);
+                assert.ok(opts.length === 1);
+                taskLog.push(opts[0]);
+                process.nextTick(cb);
+            }
+        } ]
     });
     vasync.pipeline({
         args: {},
@@ -98,16 +102,18 @@ test('multiple tasks', function (t) {
 test('consume multiple', function (t) {
     var taskLog = [];
     var taskPipe = new TaskPipe({
-        'name': 'tp',
-        'func': function (opts, cb) {
-            assert.arrayOfString(opts);
-            assert.ok(opts.length === 2);
-            taskLog.push(opts);
-            process.nextTick(cb);
-        },
-        'choose': function (arr) {
-            return (2);
-        }
+        'tasks': [ {
+            'name': 'tp',
+            'func': function (opts, cb) {
+                assert.arrayOfString(opts);
+                assert.ok(opts.length === 2);
+                taskLog.push(opts);
+                process.nextTick(cb);
+            },
+            'choose': function (arr) {
+                return (2);
+            }
+        } ]
     });
     vasync.pipeline({
         args: {},
@@ -144,30 +150,30 @@ test('consume multiple', function (t) {
 
 test('chain one', function (t) {
     var taskLog = [];
-    var taskPipeTwo = new TaskPipe({
-        'name': 'tp-2',
-        'func': function (opts, cb) {
-            assert.arrayOfString(opts);
-            t.equal(1, opts.length);
-            taskLog.push(opts[0]);
-            cb();
-        }
-    });
-    var taskPipeOne = new TaskPipe({
-        'name': 'tp-1',
-        'func': function (opts, cb) {
-            assert.arrayOfString(opts);
-            t.equal(1, opts.length);
-            taskLog.push(opts[0]);
-            cb();
-        },
-        'next': taskPipeTwo
+    var taskPipe = new TaskPipe({
+        'tasks': [ {
+            'name': 'tp-1',
+            'func': function (opts, cb) {
+                assert.arrayOfString(opts);
+                t.equal(1, opts.length);
+                taskLog.push(opts[0]);
+                cb();
+            }
+        }, {
+            'name': 'tp-2',
+            'func': function (opts, cb) {
+                assert.arrayOfString(opts);
+                t.equal(1, opts.length);
+                taskLog.push(opts[0]);
+                cb();
+            }
+        } ]
     });
     vasync.pipeline({
         args: {},
         funcs: [
             function appendOne(_, subcb) {
-                taskPipeOne.append('0', subcb);
+                taskPipe.append('0', subcb);
             },
             function check(_, subcb) {
                 t.deepEqual(['0', '0'], taskLog);
@@ -185,35 +191,34 @@ test('chain one', function (t) {
 
 //Unfortunately, this test works by timing.  There's a possibility that it will
 // break at some point.  If/when it does, we'll have to rewrite.
-//TODO: This does break on occasion... need to ^^
 test('chain multiple', function (t) {
     var taskLog = [];
-    var taskPipeTwo = new TaskPipe({
-        'name': 'tp-2',
-        'func': function (opts, cb) {
-            assert.arrayOfString(opts);
-            setTimeout(function () {
-                taskLog.push(opts.map(function (x) { return ('2-' + x); }));
-                cb();
-            }, 70);
-        },
-        'choose': function (arr) {
-            return (1);
-        }
-    });
-    var taskPipeOne = new TaskPipe({
-        'name': 'tp-1',
-        'func': function (opts, cb) {
-            assert.arrayOfString(opts);
-            setTimeout(function () {
-                taskLog.push(opts.map(function (x) { return ('1-' + x); }));
-                cb();
-            }, 100);
-        },
-        'choose': function (arr) {
-            return (2);
-        },
-        'next': taskPipeTwo
+    var taskPipe = new TaskPipe({
+        'tasks': [ {
+            'name': 'tp-1',
+            'func': function (opts, cb) {
+                assert.arrayOfString(opts);
+                setTimeout(function () {
+                    taskLog.push(opts.map(function (x) { return ('1-' + x); }));
+                    cb();
+                }, 100);
+            },
+            'choose': function (arr) {
+                return (2);
+            }
+        }, {
+            'name': 'tp-2',
+            'func': function (opts, cb) {
+                assert.arrayOfString(opts);
+                setTimeout(function () {
+                    taskLog.push(opts.map(function (x) { return ('2-' + x); }));
+                    cb();
+                }, 70);
+            },
+            'choose': function (arr) {
+                return (1);
+            }
+        } ]
     });
     vasync.pipeline({
         args: {},
@@ -226,11 +231,11 @@ test('chain multiple', function (t) {
                         subcb();
                     }
                 }
-                taskPipeOne.append('0', tryEnd);
-                taskPipeOne.append('1', tryEnd);
-                taskPipeOne.append('2', tryEnd);
-                taskPipeOne.append('3', tryEnd);
-                taskPipeOne.append('4', tryEnd);
+                taskPipe.append('0', tryEnd);
+                taskPipe.append('1', tryEnd);
+                taskPipe.append('2', tryEnd);
+                taskPipe.append('3', tryEnd);
+                taskPipe.append('4', tryEnd);
             },
             function check(_, subcb) {
                 //Explanation:
@@ -266,27 +271,27 @@ test('chain multiple', function (t) {
 
 test('chain break', function (t) {
     var reachedTwo = false;
-    var taskPipeTwo = new TaskPipe({
-        'name': 'tp-2',
-        'func': function (opts, cb) {
-            reachedTwo = true;
-            cb();
-        }
-    });
-    var taskPipeOne = new TaskPipe({
-        'name': 'tp-1',
-        'func': function (opts, cb) {
-            var e = new Error('ahhhhhhh!');
-            e.name = 'OneError';
-            cb(e);
-        },
-        'next': taskPipeTwo
+    var taskPipe = new TaskPipe({
+        'tasks': [ {
+            'name': 'tp-1',
+            'func': function (opts, cb) {
+                var e = new Error('ahhhhhhh!');
+                e.name = 'OneError';
+                cb(e);
+            }
+        }, {
+            'name': 'tp-2',
+            'func': function (opts, cb) {
+                reachedTwo = true;
+                cb();
+            }
+        } ]
     });
     vasync.pipeline({
         args: {},
         funcs: [
             function appendOne(_, subcb) {
-                taskPipeOne.append('0', subcb);
+                taskPipe.append('0', subcb);
             }
         ]
     }, function (err) {
@@ -301,28 +306,27 @@ test('chain break', function (t) {
 
 
 test('nextTick callback', function (t) {
-    var taskPipeOne = new TaskPipe({
-        'name': 'tp-1',
-        'func': function (opts, cb) {
-            process.nextTick(cb);
-        },
-        'next': taskPipeTwo
+    var taskPipe = new TaskPipe({
+        'tasks': [ {
+            'name': 'tp-1',
+            'func': function (opts, cb) {
+                process.nextTick(cb);
+            }
+        }, {
+            'name': 'tp-2',
+            'func': function (opts, cb) {
+                process.nextTick(cb);
+            }
+        } ]
     });
-    var taskPipeTwo = new TaskPipe({
-        'name': 'tp-2',
-        'func': function (opts, cb) {
-            process.nextTick(cb);
-        }
-    });
-    taskPipeOne.next = taskPipeTwo;
     vasync.pipeline({
         args: {},
         funcs: [
             function append(_, subcb) {
-                taskPipeOne.append('0', subcb);
+                taskPipe.append('0', subcb);
             },
             function appendAgain(_, subcb) {
-                taskPipeOne.append('0', subcb);
+                taskPipe.append('0', subcb);
             }
         ]
     }, function (err) {
@@ -335,28 +339,27 @@ test('nextTick callback', function (t) {
 
 
 test('immediate callback', function (t) {
-    var taskPipeOne = new TaskPipe({
-        'name': 'tp-1',
-        'func': function (opts, cb) {
-            cb();
-        },
-        'next': taskPipeTwo
+    var taskPipe = new TaskPipe({
+        'tasks': [ {
+            'name': 'tp-1',
+            'func': function (opts, cb) {
+                cb();
+            }
+        }, {
+            'name': 'tp-2',
+            'func': function (opts, cb) {
+                cb();
+            }
+        } ]
     });
-    var taskPipeTwo = new TaskPipe({
-        'name': 'tp-2',
-        'func': function (opts, cb) {
-            cb();
-        }
-    });
-    taskPipeOne.next = taskPipeTwo;
     vasync.pipeline({
         args: {},
         funcs: [
             function append(_, subcb) {
-                taskPipeOne.append('0', subcb);
+                taskPipe.append('0', subcb);
             },
             function appendAgain(_, subcb) {
-                taskPipeOne.append('0', subcb);
+                taskPipe.append('0', subcb);
             }
         ]
     }, function (err) {
