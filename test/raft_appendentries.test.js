@@ -308,7 +308,7 @@ test('idempotent append at end', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 4) ]
+                    'entries': [ e(3, 3), e(4, 3) ]
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -321,7 +321,7 @@ test('idempotent append at end', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 4) ]
+                    'entries': [ e(3, 3), e(4, 3) ]
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -360,7 +360,7 @@ test('cause truncation', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(2, 2), e(3, 4) ]
+                    'entries': [ e(2, 2), e(3, 2) ]
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -374,7 +374,7 @@ test('cause truncation', function (t) {
                     t.equal(4, r.clog.clog.length);
                     t.equal(2, r.stateMachine.commitIndex);
                     t.equal('command-2-2', r.stateMachine.data);
-                    t.equal('command-3-4', r.clog.clog[3].command);
+                    t.equal('command-3-2', r.clog.clog[3].command);
                     return (subcb(err));
                 });
             }
@@ -399,7 +399,7 @@ test('consistency fail with term mismatch', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 4), e(4, 4) ]
+                    'entries': [ e(3, 2), e(4, 2) ]
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -440,7 +440,7 @@ test('consistency fail with index too far ahead', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(5, 5), e(6, 6) ]
+                    'entries': [ e(5, 3), e(6, 3) ]
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -481,7 +481,7 @@ test('leader mismatch (a very bad thing)', function (t) {
                     'term': 3,
                     'leaderId': 'raft-2',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 4) ]
+                    'entries': [ e(3, 3), e(4, 3) ]
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1324,7 +1324,7 @@ test('commit index is in list of updates', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 4,
-                    'entries': [ e(3, 3), e(4, 4), e(5, 5) ]
+                    'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1337,7 +1337,7 @@ test('commit index is in list of updates', function (t) {
                     t.equal(6, r.clog.nextIndex);
                     t.equal(6, r.clog.clog.length);
                     t.equal(4, r.stateMachine.commitIndex);
-                    t.equal('command-4-4', r.stateMachine.data);
+                    t.equal('command-4-3', r.stateMachine.data);
                     return (subcb(err));
                 });
             }
@@ -1362,7 +1362,7 @@ test('commit index is end of updates', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 5,
-                    'entries': [ e(3, 3), e(4, 4), e(5, 5) ]
+                    'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1375,7 +1375,7 @@ test('commit index is end of updates', function (t) {
                     t.equal(6, r.clog.nextIndex);
                     t.equal(6, r.clog.clog.length);
                     t.equal(5, r.stateMachine.commitIndex);
-                    t.equal('command-5-5', r.stateMachine.data);
+                    t.equal('command-5-3', r.stateMachine.data);
                     return (subcb(err));
                 });
             }
@@ -1412,7 +1412,7 @@ test('concurrent appends, same terms', function (t) {
                         'term': 3,
                         'leaderId': 'raft-1',
                         'commitIndex': 4,
-                        'entries': [ e(3, 3), e(4, 4) ]
+                        'entries': [ e(3, 3), e(4, 3) ]
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(3, res.term);
@@ -1426,7 +1426,7 @@ test('concurrent appends, same terms', function (t) {
                         'term': 3,
                         'leaderId': 'raft-1',
                         'commitIndex': 5,
-                        'entries': [ e(3, 3), e(4, 4), e(5, 5) ]
+                        'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(3, res.term);
@@ -1444,7 +1444,7 @@ test('concurrent appends, same terms', function (t) {
                 t.equal(6, r.clog.nextIndex);
                 t.equal(6, r.clog.clog.length);
                 t.equal(5, r.stateMachine.commitIndex);
-                t.equal('command-5-5', r.stateMachine.data);
+                t.equal('command-5-3', r.stateMachine.data);
                 return (subcb());
             }
         ]
@@ -1492,7 +1492,7 @@ test('concurrent appends, same future terms', function (t) {
                         'term': 4,
                         'leaderId': 'raft-2',
                         'commitIndex': 5,
-                        'entries': [ e(3, 3), e(4, 4), e(5, 5) ]
+                        'entries': [ e(3, 3), e(4, 4), e(5, 4) ]
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(4, res.term);
@@ -1510,7 +1510,7 @@ test('concurrent appends, same future terms', function (t) {
                 t.equal(6, r.clog.nextIndex);
                 t.equal(6, r.clog.clog.length);
                 t.equal(5, r.stateMachine.commitIndex);
-                t.equal('command-5-5', r.stateMachine.data);
+                t.equal('command-5-4', r.stateMachine.data);
                 return (subcb());
             }
         ]
