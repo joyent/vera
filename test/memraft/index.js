@@ -39,7 +39,8 @@ function raft(opts, cb) {
                 _.stateMachine.on('ready', subcb);
             },
             function initMemLog(_, subcb) {
-                _.clog = new MemLog({ 'log': log });
+                _.clog = new MemLog({ 'log': log,
+                                      'stateMachine': _.stateMachine });
                 _.clog.on('ready', subcb);
             },
             function initMemProps(_, subcb) {

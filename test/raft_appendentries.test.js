@@ -1740,3 +1740,50 @@ test('leader not known in peers', function (t) {
         t.done();
     });
 });
+
+
+test('attempt to truncate below commit index', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function append(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'commitIndex': 5,
+                    'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(3, res.term);
+                    t.ok(res.success);
+                    return (subcb());
+                });
+            },
+            function attemptTruncate(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 4,
+                    'leaderId': 'raft-2',
+                    'commitIndex': 5,
+                    'entries': [ e(3, 3), e(4, 4), e(5, 4), e(6, 4) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(4, res.term);
+                    t.ok(res.success === false);
+
+                    t.ok(err);
+                    t.equal('InternalError', err.name);
+
+                    return (subcb());
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});

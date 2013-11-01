@@ -15,6 +15,10 @@ var util = require('util');
  * of the entries.  That way if we add things (for example, a cumulative hash)
  * we don't have to change types everywhere.
  *
+ * The memlog keeps track of the stateMachine so that it can verify safety
+ * during log truncation.  It was either that or pass the current commit index
+ * along on each append.
+ *
  * IMO, it makes for a simpler interface for append.
  *
  * The other two apis (slice and last) are used to get a slice of the log entry
@@ -34,9 +38,11 @@ var util = require('util');
 function MemLog(opts) {
     assert.object(opts, 'opts');
     assert.object(opts.log, 'opts.log');
+    assert.object(opts.stateMachine, 'opts.stateMachine');
 
     var self = this;
     self.log = opts.log;
+    self.stateMachine = opts.stateMachine;
     //The Raft paper says that the index should start at one.  Rather than
     // doing that, a fixed [0] ensures that the consistency check will always
     // succeed.
@@ -73,6 +79,7 @@ MemLog.prototype.append = function (entries, cb) {
     }
 
     var self = this;
+    var log = self.log;
     var entry = entries[0];
     assert.optionalNumber(entry.index, 'entries[0].index');
     assert.number(entry.term, 'entries[0].term');
@@ -125,6 +132,21 @@ MemLog.prototype.append = function (entries, cb) {
         e = entries[i];
         //Truncate if necessary...
         if (self.clog[e.index] && self.clog[e.index].term != e.term) {
+            //Up until now, all the records should have been read-and-verify
+            // only.  Since we're at the point where we'll actually do damage
+            // (truncation), we do some sanity checking.
+            if (self.stateMachine.commitIndex >= e.index) {
+                var message = sprintf(
+                    'attempt to truncate before state machine\'s ' +
+                        'commit index', i);
+                log.error({
+                    'stateMachineIndex': self.stateMachine.commitIndex,
+                    'oldEntry': self.clog[e.index],
+                    'newEntry': e
+                }, message);
+                return (process.nextTick(cb.bind(
+                    null, new error.InternalError(message))));
+            }
             self.clog.length = e.index;
         }
         self.clog[e.index] = e;
