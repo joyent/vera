@@ -174,6 +174,78 @@ test('initial heartbeat (empty append, empty follower)', function (t) {
 });
 
 
+test('first append, first commit', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            //The init function does more, so make this on our own
+            function initEmptyRaft(_, subcb) {
+                memraft.raft({
+                    log: LOG,
+                    id: 'raft-0',
+                    peers: [ 'raft-1', 'raft-2' ]
+                }, function (err, r) {
+                    if (err) {
+                        return (subcb(err));
+                    }
+                    _.raft = r;
+                    r.leaderTimeout = LOW_LEADER_TIMEOUT;
+                    return (subcb(null));
+                });
+            },
+            function append(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'entries': [ e(0, 0), e(1, 0) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(0, res.term);
+                    t.ok(res.success);
+
+                    t.equal(0, r.currentTerm());
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                    t.equal('raft-1', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(2, r.clog.nextIndex);
+                    t.equal(2, r.clog.clog.length);
+                    t.equal('command-1-0', r.clog.clog[1].command);
+                    t.equal(0, r.stateMachine.commitIndex);
+                    t.equal(undefined, r.stateMachine.data);
+                    return (subcb(err));
+                });
+            },
+            function commit(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'commitIndex': 1,
+                    'entries': [ e(0, 0), e(1, 0) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(0, res.term);
+                    t.ok(res.success);
+
+                    t.equal(0, r.currentTerm());
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
+                    t.equal('raft-1', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(2, r.clog.nextIndex);
+                    t.equal(2, r.clog.clog.length);
+                    t.equal('command-1-0', r.clog.clog[1].command);
+                    t.equal(1, r.stateMachine.commitIndex);
+                    t.equal('command-1-0', r.stateMachine.data);
+                    return (subcb(err));
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
 test('state after test init and log[0] heartbeat', function (t) {
     vasync.pipeline({
         arg: {},
@@ -376,6 +448,47 @@ test('cause truncation', function (t) {
                     t.equal('command-2-2', r.stateMachine.data);
                     t.equal('command-3-2', r.clog.clog[3].command);
                     return (subcb(err));
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('log term past request term', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initRaft(),
+            function append(_, subcb) {
+                var r = _.raft;
+                r.appendEntries(ae({
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'commitIndex': 2,
+                    'entries': [ e(3, 3), e(4, 4) ]
+                }), function (err, res) {
+                    t.ok(res);
+                    t.equal(3, res.term);
+                    t.ok(res.success === false);
+
+                    t.ok(err);
+                    t.equal('InvalidTermError', err.name);
+
+                    t.equal(3, r.currentTerm());
+                    t.ok(r.leaderTimeout === LOW_LEADER_TIMEOUT);
+                    t.equal('raft-1', r.leaderId);
+                    t.equal('follower', r.state);
+                    t.equal(4, r.clog.nextIndex);
+                    t.equal(4, r.clog.clog.length);
+                    t.equal(2, r.stateMachine.commitIndex);
+                    t.equal('command-2-2', r.stateMachine.data);
+                    return (subcb());
                 });
             }
         ]
