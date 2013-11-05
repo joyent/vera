@@ -7,19 +7,18 @@ var sprintf = require('extsprintf').sprintf;
 var util = require('util');
 
 /**
- * This is an in-memory version of a raft log.  The api is simple, but
- * diverges slightly from what the Raft paper implies.  Since the last term
- * and last index are separate in the client api, it would have made sense
- * to make the append api take a prevLogIndex and prevLogTerm.  Rather than
- * separating them out, I'm just including the full entry as the first element
- * of the entries.  That way if we add things (for example, a cumulative hash)
- * we don't have to change types everywhere.
+ * This is an in-memory version of a raft log.  The api is simple, but diverges
+ * slightly from what the Raft paper implies.  Since the last term and last
+ * index are separate in the client api, it would have made sense to make the
+ * append api take a prevLogIndex and prevLogTerm.  Rather than separating them
+ * out, I'm just including the full entry as the first element of the entries.
+ * That way if we add things (for example, a cumulative hash) we don't have to
+ * change types everywhere.  IMO, it makes for a simpler interface for append.
  *
  * The memlog keeps track of the stateMachine so that it can verify safety
  * during log truncation.  It was either that or pass the current commit index
- * along on each append.
- *
- * IMO, it makes for a simpler interface for append.
+ * along on each append, which would have made it confusing with the request
+ * commit index.
  *
  * The other two apis (slice and last) are used to get a slice of the log entry
  * and to get the last entry in this log, respectively.
@@ -72,15 +71,23 @@ module.exports = MemLog;
  *     if the consistency check passes, but the list of entries diverge.
  *   - If entries are a sublist of the log, nothing happens.
  */
-MemLog.prototype.append = function (entries, cb) {
-    assert.arrayOfObject(entries, 'entries');
-    if (entries.length === 0) {
-        return (process.nextTick(cb));
-    }
+MemLog.prototype.append = function (opts, cb) {
+    assert.object(opts, 'opts');
+    assert.number(opts.commitIndex, 'opts.commitIndex');
+    assert.number(opts.term, 'opts.term');
+    //TODO: Make this a stream.
+    assert.arrayOfObject(opts.entries, 'opts.entries');
 
     var self = this;
     var log = self.log;
+    var commitIndex = opts.commitIndex;
+    var term = opts.term;
+    var entries = opts.entries;
     var entry = entries[0];
+
+    if (entries.length === 0) {
+        return (process.nextTick(cb));
+    }
     assert.optionalNumber(entry.index, 'entries[0].index');
     assert.number(entry.term, 'entries[0].term');
     if (!self.ready) {
@@ -108,6 +115,22 @@ MemLog.prototype.append = function (entries, cb) {
     }
 
     //Sanity checks...
+    var lastEntry = entries[entries.length - 1];
+    if (commitIndex > lastEntry.index) {
+        return (process.nextTick(cb.bind(
+            null, new error.InvalidIndexError(sprintf(
+                'commit index %d is ahead of the last log entry ' +
+                    'index %d', commitIndex, lastEntry.index)))));
+    }
+
+    //Since we make sure terms are strictly increasing below, we only need
+    // to check here that the last term isn't greater than the request term.
+    if (term < lastEntry.term) {
+        return (process.nextTick(cb.bind(
+            null, new error.InvalidTermError(sprintf(
+                'request term %d is behind of the last log term %d',
+                term, lastEntry.term)))));
+    }
 
     //Verify indexes are in order, terms are strictly increasing
     var loopTerm = entry.term;

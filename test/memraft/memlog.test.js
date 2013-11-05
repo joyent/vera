@@ -58,9 +58,11 @@ test('consistency check on 0, success', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [ e(0, 0) ]
+            }, subcb);
         },
         function (_, subcb) {
             t.ok(_.ml.clog.length === 1);
@@ -89,9 +91,11 @@ test('consistency check on 0, fail', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 1)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [ e(0, 1) ]
+            }, subcb);
         }
     ];
     vasync.pipeline({
@@ -111,10 +115,12 @@ test('append one at a time', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
                 //No index, so append!
-                { 'term': 2, 'command': 'command-1-2' }
-            ], function (err, entry) {
+                'entries': [ { 'term': 2, 'command': 'command-1-2' } ]
+            }, function (err, entry) {
                 if (err) {
                     subcb(err);
                     return;
@@ -126,10 +132,12 @@ test('append one at a time', function (t) {
             });
         },
         function (_, subcb) {
-            _.ml.append([
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
                 //No index, so append!
-                { 'term': 2, 'command': 'command-2-2' }
-            ], function (err, entry) {
+                'entries': [ { 'term': 2, 'command': 'command-2-2' } ]
+            }, function (err, entry) {
                 t.equal(2, entry.index);
                 t.deepEqual(_.ml.last(), entry);
                 subcb();
@@ -160,11 +168,15 @@ test('add two success', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 1),
-                e(2, 1)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': [
+                    e(0, 0),
+                    e(1, 1),
+                    e(2, 1)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
             t.ok(_.ml.clog.length === 3);
@@ -195,12 +207,16 @@ test('slices', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0),
-                e(2, 1),
-                e(3, 1)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0),
+                    e(2, 1),
+                    e(3, 1)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
             _.ml.slice(0, function (err, entries) {
@@ -245,18 +261,26 @@ test('idempotent, two in the middle.', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0),
-                e(2, 0),
-                e(3, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0),
+                    e(2, 0),
+                    e(3, 0)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
-            _.ml.append([
-                e(1, 0),
-                e(2, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(1, 0),
+                    e(2, 0)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
             t.ok(_.ml.clog.length === 4);
@@ -283,18 +307,26 @@ test('cause truncate from beginning', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0),
-                e(2, 0),
-                e(3, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0),
+                    e(2, 0),
+                    e(3, 0)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 1)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': [
+                    e(0, 0),
+                    e(1, 1)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
             t.ok(_.ml.clog.length === 2);
@@ -320,19 +352,27 @@ test('cause truncate in middle', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0),
-                e(2, 0),
-                e(3, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0),
+                    e(2, 0),
+                    e(3, 0)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
-            _.ml.append([
-                e(1, 0),
-                e(2, 1),
-                e(3, 3)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 3,
+                'entries': [
+                    e(1, 0),
+                    e(2, 1),
+                    e(3, 3)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
             t.ok(_.ml.clog.length === 4);
@@ -359,12 +399,16 @@ test('truncate before commit index', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0),
-                e(2, 0),
-                e(3, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0),
+                    e(2, 0),
+                    e(3, 0)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
             _.ml.slice(1, 4, function (e1, entries) {
@@ -376,11 +420,15 @@ test('truncate before commit index', function (t) {
             });
         },
         function (_, subcb) {
-            _.ml.append([
-                e(1, 0),
-                e(2, 1),
-                e(3, 3)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 3,
+                'entries': [
+                    e(1, 0),
+                    e(2, 1),
+                    e(3, 3)
+                ]
+            }, subcb);
         }
     ];
     vasync.pipeline({
@@ -398,12 +446,16 @@ test('truncate at commit index', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0),
-                e(2, 0),
-                e(3, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0),
+                    e(2, 0),
+                    e(3, 0)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
             _.ml.slice(1, 4, function (e1, entries) {
@@ -415,11 +467,15 @@ test('truncate at commit index', function (t) {
             });
         },
         function (_, subcb) {
-            _.ml.append([
-                e(1, 0),
-                e(2, 0),
-                e(3, 1)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': [
+                    e(1, 0),
+                    e(2, 0),
+                    e(3, 1)
+                ]
+            }, subcb);
         }
     ];
     vasync.pipeline({
@@ -437,18 +493,26 @@ test('cause replace end, add one', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0),
-                e(2, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0),
+                    e(2, 0)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
-            _.ml.append([
-                e(1, 0),
-                e(2, 3),
-                e(3, 3)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 3,
+                'entries': [
+                    e(1, 0),
+                    e(2, 3),
+                    e(3, 3)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
             t.ok(_.ml.clog.length === 4);
@@ -476,9 +540,11 @@ test('add first, term > 0', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                { 'term': 5, 'command': 'command-1-5' }
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [ { 'term': 5, 'command': 'command-1-5' } ]
+            }, subcb);
         },
         function (_, subcb) {
             t.ok(_.ml.clog.length === 2);
@@ -502,16 +568,24 @@ test('term mismatch', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0)
+                ]
+            }, subcb);
         },
         function (_, subcb) {
-            _.ml.append([
-                e(1, 1),
-                e(2, 1)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(1, 1),
+                    e(2, 1)
+                ]
+            }, subcb);
         }
     ];
     vasync.pipeline({
@@ -530,13 +604,17 @@ test('indexes out of order', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 0),
-                e(3, 0),
-                e(2, 0),
-                e(4, 0)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 0),
+                    e(3, 0),
+                    e(2, 0),
+                    e(4, 0)
+                ]
+            }, subcb);
         }
     ];
     vasync.pipeline({
@@ -555,13 +633,17 @@ test('term out of order', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(0, 0),
-                e(1, 1),
-                e(2, 2),
-                e(3, 1),
-                e(4, 2)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(0, 0),
+                    e(1, 1),
+                    e(2, 2),
+                    e(3, 1),
+                    e(4, 2)
+                ]
+            }, subcb);
         }
     ];
     vasync.pipeline({
@@ -580,10 +662,14 @@ test('append past end', function (t) {
     var funcs = [
         initMemLog(),
         function (_, subcb) {
-            _.ml.append([
-                e(5, 5),
-                e(6, 6)
-            ], subcb);
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': [
+                    e(5, 5),
+                    e(6, 6)
+                ]
+            }, subcb);
         }
     ];
     vasync.pipeline({
@@ -591,6 +677,58 @@ test('append past end', function (t) {
         arg: {}
     }, function (err) {
         if (!err || err.name !== 'TermMismatchError') {
+            t.fail('should have thrown an TermMismatchError');
+        }
+        t.done();
+    });
+});
+
+
+test('term later than last entry', function (t) {
+    var funcs = [
+        initMemLog(),
+        function (_, subcb) {
+            _.ml.append({
+                'commitIndex': 0,
+                'term': 3,
+                'entries': [
+                    e(0, 0),
+                    e(1, 5)
+                ]
+            }, subcb);
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (!err || err.name !== 'InvalidTermError') {
+            t.fail('should have thrown an InvalidTermError');
+        }
+        t.done();
+    });
+});
+
+
+test('commit index later than last entry', function (t) {
+    var funcs = [
+        initMemLog(),
+        function (_, subcb) {
+            _.ml.append({
+                'commitIndex': 2,
+                'term': 5,
+                'entries': [
+                    e(0, 0),
+                    e(1, 5)
+                ]
+            }, subcb);
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (!err || err.name !== 'InvalidIndexError') {
             t.fail('should have thrown an TermMismatchError');
         }
         t.done();

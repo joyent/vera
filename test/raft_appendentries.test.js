@@ -481,7 +481,7 @@ test('log term past request term', function (t) {
                     t.equal('InvalidTermError', err.name);
 
                     t.equal(3, r.currentTerm());
-                    t.ok(r.leaderTimeout === LOW_LEADER_TIMEOUT);
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
                     t.equal('raft-1', r.leaderId);
                     t.equal('follower', r.state);
                     t.equal(4, r.clog.nextIndex);
@@ -1406,7 +1406,7 @@ test('commit index too far in future', function (t) {
                     t.equal('InvalidIndexError', err.name);
 
                     t.equal(3, r.currentTerm());
-                    t.ok(r.leaderTimeout === LOW_LEADER_TIMEOUT);
+                    t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
                     t.equal('raft-1', r.leaderId);
                     t.equal('follower', r.state);
                     t.equal(4, r.clog.nextIndex);

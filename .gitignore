@@ -11,6 +11,7 @@ pids
 logs
 results
 abandoned
+tmp
 
 npm-debug.log
 node_modules
