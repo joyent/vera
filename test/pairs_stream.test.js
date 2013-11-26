@@ -186,6 +186,71 @@ test('test ns end immediately non-flowing', function (t) {
 });
 
 
+test('test ns stream after reading one, flowing', function (t) {
+    var one = ns([1, 2, 3, 4, 5]);
+    var res = [];
+    var firstOne = null;
+
+    function tryStartReadAll() {
+        if (firstOne === null) {
+            return;
+        }
+        one.removeListener('readable', oneOnReadable);
+
+        //Start it flowing...
+        one.on('data', function (d) {
+            res.push(d);
+        });
+    }
+
+    function oneOnReadable() {
+        firstOne = one.read();
+        tryStartReadAll();
+    }
+
+    one.on('readable', oneOnReadable);
+    one.once('end', function () {
+        t.equal(1, firstOne);
+        t.deepEqual([2, 3, 4, 5], res);
+        t.done();
+    });
+});
+
+
+test('test ns stream after reading one, non-flowing', function (t) {
+    var one = ns([1, 2, 3, 4, 5]);
+    var res = [];
+    var firstOne = null;
+
+    function tryStartReadAll() {
+        if (firstOne === null) {
+            return;
+        }
+        one.removeListener('readable', oneOnReadable);
+
+        function restReadable() {
+            var d;
+            while (null !== (d = one.read())) {
+                res.push(d);
+            }
+        }
+        one.on('readable', restReadable);
+    }
+
+    function oneOnReadable() {
+        firstOne = one.read();
+        tryStartReadAll();
+    }
+
+    one.on('readable', oneOnReadable);
+    one.once('end', function () {
+        t.equal(1, firstOne);
+        t.deepEqual([2, 3, 4, 5], res);
+        t.done();
+    });
+});
+
+
 
 ///--- Tests for the PairsStream class
 
@@ -445,4 +510,143 @@ test('pause during right still going, flowing', function (t) {
         t.equal(4, npaused);
         t.done();
     });
+});
+
+
+test('stream after reading one', function (t) {
+    var left = ns([1, 2, 3, 4]);
+    var right = ns([1, 2, 3, 4, 5, 6, 7, 8]);
+    var res = [];
+
+    var leftFirst = null;
+    var rightFirst = null;
+
+    function leftOnReadable() {
+        leftFirst = left.read();
+        tryStartReadable();
+    }
+
+    function rightOnReadable() {
+        rightFirst = right.read();
+        tryStartReadable();
+    }
+
+    function tryStartReadable() {
+        if (leftFirst === null || rightFirst === null) {
+            return;
+        }
+        left.removeListener('readable', leftOnReadable);
+        right.removeListener('readable', rightOnReadable);
+
+        var ps = new PairsStream({ 'left': left, 'right': right });
+
+        ps.on('data', function (d) {
+            res.push(d);
+        });
+
+        ps.on('end', function () {
+            t.ok(ps.leftEnded);
+            t.ok(ps.rightEnded);
+            t.equal(1, leftFirst);
+            t.equal(1, rightFirst);
+            t.deepEqual(makeResult([2, 2, 3, 3, 4, 4], null,
+                                   [5, 6, 7, 8]), res);
+            t.done();
+        });
+    }
+
+    left.on('readable', leftOnReadable);
+    right.on('readable', rightOnReadable);
+});
+
+
+test('stream after reading one, left end', function (t) {
+    var left = ns([1]);
+    var right = ns([1, 2]);
+    var res = [];
+
+    var leftFirst = null;
+    var rightFirst = null;
+
+    function leftOnReadable() {
+        leftFirst = left.read();
+        tryStartReadable();
+    }
+
+    function rightOnReadable() {
+        rightFirst = right.read();
+        tryStartReadable();
+    }
+
+    function tryStartReadable() {
+        if (leftFirst === null || rightFirst === null) {
+            return;
+        }
+        left.removeListener('readable', leftOnReadable);
+        right.removeListener('readable', rightOnReadable);
+
+        var ps = new PairsStream({ 'left': left, 'right': right });
+
+        ps.on('data', function (d) {
+            res.push(d);
+        });
+
+        ps.on('end', function () {
+            t.ok(ps.leftEnded);
+            t.ok(ps.rightEnded);
+            t.equal(1, leftFirst);
+            t.equal(1, rightFirst);
+            t.deepEqual(makeResult(null, null, [2]), res);
+            t.done();
+        });
+    }
+
+    left.on('readable', leftOnReadable);
+    right.on('readable', rightOnReadable);
+});
+
+
+test('stream after reading one, right end', function (t) {
+    var left = ns([1, 2]);
+    var right = ns([1]);
+    var res = [];
+
+    var leftFirst = null;
+    var rightFirst = null;
+
+    function leftOnReadable() {
+        leftFirst = left.read();
+        tryStartReadable();
+    }
+
+    function rightOnReadable() {
+        rightFirst = right.read();
+        tryStartReadable();
+    }
+
+    function tryStartReadable() {
+        if (leftFirst === null || rightFirst === null) {
+            return;
+        }
+        left.removeListener('readable', leftOnReadable);
+        right.removeListener('readable', rightOnReadable);
+
+        var ps = new PairsStream({ 'left': left, 'right': right });
+
+        ps.on('data', function (d) {
+            res.push(d);
+        });
+
+        ps.on('end', function () {
+            t.ok(ps.leftEnded);
+            t.ok(ps.rightEnded);
+            t.equal(1, leftFirst);
+            t.equal(1, rightFirst);
+            t.deepEqual(makeResult(null, [2]), res);
+            t.done();
+        });
+    }
+
+    left.on('readable', leftOnReadable);
+    right.on('readable', rightOnReadable);
 });
