@@ -128,7 +128,7 @@ MemLog.prototype.append = function (opts, cb) {
     if (term < lastEntry.term) {
         return (process.nextTick(cb.bind(
             null, new error.InvalidTermError(sprintf(
-                'request term %d is behind of the last log term %d',
+                'request term %d is behind the last log term %d',
                 term, lastEntry.term)))));
     }
 
