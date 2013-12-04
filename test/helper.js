@@ -1,20 +1,60 @@
 // Copyright 2012 Joyent, Inc.  All rights reserved.
 
+var assert = require('assert-plus');
 var bunyan = require('bunyan');
+var stream = require('stream');
 
 
 
 ///--- Helpers
 
-function createLogger(name, stream) {
+function createLogger(name, outputStream) {
     var log = bunyan.createLogger({
         level: (process.env.LOG_LEVEL || 'info'),
         name: name || process.argv[1],
-        stream: stream || process.stdout,
+        stream: outputStream || process.stdout,
         src: true,
         serializers: bunyan.stdSerializers
     });
     return (log);
+}
+
+
+function e(index, term) {
+    return ({
+        'index': index,
+        'term': term,
+        'command': index === 0 ? 'noop' : 'command-' + index + '-' + term
+    });
+}
+
+
+function entryStream(a) {
+    assert.equal(0, a.length % 2);
+    var entries = [];
+    for (var i = 0; i < a.length; i += 2) {
+        entries.push(e(a[i], a[i + 1]));
+    }
+    return (memStream(entries));
+}
+
+
+function memStream(a) {
+    var r = stream.Readable({ 'objectMode': true });
+    r.ended = false;
+    r.i = 0;
+    r._read = function () {
+        if (r.ended === true) {
+            return;
+        }
+        r.push(a[r.i]);
+        r.i += 1;
+        if (r.i === a.length) {
+            r.ended = true;
+            r.push(null);
+        }
+    };
+    return (r);
 }
 
 
@@ -27,8 +67,8 @@ module.exports = {
         module.parent.exports.tearDown = function _teardown(callback) {
             try {
                 teardown.call(this, callback);
-            } catch (e) {
-                console.error('after:\n' + e.stack);
+            } catch (err) {
+                console.error('after:\n' + err.stack);
                 process.exit(1);
             }
         };
@@ -38,8 +78,8 @@ module.exports = {
         module.parent.exports.setUp = function _setup(callback) {
             try {
                 setup.call(this, callback);
-            } catch (e) {
-                console.error('before:\n' + e.stack);
+            } catch (err) {
+                console.error('before:\n' + err.stack);
                 process.exit(1);
             }
         };
@@ -62,6 +102,8 @@ module.exports = {
         };
     },
 
-    createLogger: createLogger
-
+    createLogger: createLogger,
+    e: e,
+    entryStream: entryStream,
+    memStream: memStream
 };

@@ -20,6 +20,9 @@ var vasync = require('vasync');
 var after = helper.after;
 var before = helper.before;
 var test = helper.test;
+var e = helper.e;
+var entryStream = helper.entryStream;
+var memStream = helper.memStream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'leveldb_log-test',
@@ -31,56 +34,6 @@ var DB_FILE = TMP_DIR + '/leveldb_log_test.db';
 
 
 ///--- Helpers
-
-//TODO: This will definitely need to be factored out.
-function e(index, term) {
-    return ({
-        'index': index,
-        'term': term,
-        'command': index === 0 ? 'noop' : 'command-' + index + '-' + term
-    });
-}
-
-
-//TODO: This will definitely need to be factored out.
-function eStream(a) {
-    assert.equal(0, a.length % 2);
-    var r = stream.Readable({ 'objectMode': true });
-    r.ended = false;
-    r.i = 0;
-    r._read = function () {
-        if (r.ended === true) {
-            return;
-        }
-        r.push(e(a[r.i], a[r.i + 1]));
-        r.i += 2;
-        if (r.i === a.length) {
-            r.ended = true;
-            r.push(null);
-        }
-    };
-    return (r);
-}
-
-
-function oStream(a) {
-    var r = stream.Readable({ 'objectMode': true });
-    r.ended = false;
-    r.i = 0;
-    r._read = function () {
-        if (r.ended === true) {
-            return;
-        }
-        r.push(a[r.i]);
-        r.i += 1;
-        if (r.i === a.length) {
-            r.ended = true;
-            r.push(null);
-        }
-    };
-    return (r);
-}
-
 
 function initLevelDbLog(opts, cb) {
     assert.func(cb, 'cb');
@@ -114,7 +67,7 @@ function initLevelDbLog(opts, cb) {
                 leveldbLog.append({
                     'commitIndex': 0,
                     'term': 2,
-                    'entries': eStream([0, 0, 1, 0, 2, 1, 3, 1, 4, 2])
+                    'entries': entryStream([0, 0, 1, 0, 2, 1, 3, 1, 4, 2])
                 }, subcb);
             }
         ]
@@ -158,26 +111,6 @@ after(function (cb) {
 
 ///--- Tests
 
-test('test estream', function (t) {
-    var s = eStream([0, 0, 1, 1, 2, 2]);
-    var res = [];
-    s.on('readable', function () {
-        var d;
-        while (null !== (d = s.read())) {
-            res.push(d);
-        }
-    });
-    s.on('end', function () {
-        for (var i = 0; i < res.length; ++i) {
-            var entry = res[i];
-            assert.equal(i, entry.index);
-            assert.equal(i, entry.term);
-        }
-        t.done();
-    });
-});
-
-
 test('test pass consistency check', function (t) {
     vasync.pipeline({
         'arg': {},
@@ -186,7 +119,7 @@ test('test pass consistency check', function (t) {
                 LLOG.append({
                     'commitIndex': 0,
                     'term': 2,
-                    'entries': eStream([0, 0, 1, 0, 2, 1])
+                    'entries': entryStream([0, 0, 1, 0, 2, 1])
                 }, cb);
             }
         ]
@@ -208,7 +141,7 @@ test('test append one', function (t) {
                 LLOG.append({
                     'commitIndex': 0,
                     'term': 2,
-                    'entries': oStream([ entry ])
+                    'entries': memStream([ entry ])
                 }, function (err, ent) {
                     if (err) {
                         console.log(err.name);
