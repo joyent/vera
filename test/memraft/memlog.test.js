@@ -10,6 +10,9 @@ var vasync = require('vasync');
 
 ///--- Globals
 
+var e = helper.e;
+var entryStream = helper.entryStream;
+var memStream = helper.memStream;
 var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
@@ -20,15 +23,6 @@ var LOG = bunyan.createLogger({
 
 
 ///--- Helpers
-
-function e(index, term) {
-    return ({
-        'index': index,
-        'term': term,
-        'command': index === 0 ? 'noop' : 'command-' + index + '-' + term
-    });
-}
-
 
 function initMemLog() {
     return (function init(_, cb) {
@@ -51,6 +45,19 @@ function initMemLog() {
 }
 
 
+function readStream(s, cb) {
+    var res = [];
+    s.on('readable', function () {
+        var d;
+        while (null !== (d = s.read())) {
+            res.push(d);
+        }
+    });
+    s.once('end', function () {
+        return (cb(null, res));
+    });
+}
+
 
 ///--- Tests
 
@@ -61,17 +68,19 @@ test('consistency check on 0, success', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [ e(0, 0) ]
+                'entries': entryStream([ 0, 0 ])
             }, subcb);
         },
         function (_, subcb) {
             t.ok(_.ml.clog.length === 1);
             t.deepEqual(e(0, 0), _.ml.clog[0]);
             t.equal(1, _.ml.nextIndex);
-            _.ml.slice(0, function (err, entries) {
-                t.ok(entries.length === 1);
-                t.deepEqual([ e(0, 0) ], entries);
-                subcb();
+            _.ml.slice(0, function (err, es) {
+                readStream(es, function (err2, entries) {
+                    t.ok(entries.length === 1);
+                    t.deepEqual([ e(0, 0) ], entries);
+                    subcb();
+                });
             });
         }
     ];
@@ -94,7 +103,7 @@ test('consistency check on 0, fail', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [ e(0, 1) ]
+                'entries': entryStream([ 0, 1 ])
             }, subcb);
         }
     ];
@@ -119,7 +128,8 @@ test('append one at a time', function (t) {
                 'commitIndex': 0,
                 'term': 0,
                 //No index, so append!
-                'entries': [ { 'term': 2, 'command': 'command-1-2' } ]
+                'entries': memStream([ { 'term': 2,
+                                         'command': 'command-1-2' } ])
             }, function (err, entry) {
                 if (err) {
                     subcb(err);
@@ -136,7 +146,8 @@ test('append one at a time', function (t) {
                 'commitIndex': 0,
                 'term': 0,
                 //No index, so append!
-                'entries': [ { 'term': 2, 'command': 'command-2-2' } ]
+                'entries': memStream([ { 'term': 2,
+                                         'command': 'command-2-2' } ])
             }, function (err, entry) {
                 t.equal(2, entry.index);
                 t.deepEqual(_.ml.last(), entry);
@@ -171,11 +182,11 @@ test('add two success', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': [
-                    e(0, 0),
-                    e(1, 1),
-                    e(2, 1)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 1,
+                    2, 1
+                ])
             }, subcb);
         },
         function (_, subcb) {
@@ -184,10 +195,12 @@ test('add two success', function (t) {
             t.deepEqual(e(1, 1), _.ml.clog[1]);
             t.deepEqual(e(2, 1), _.ml.clog[2]);
             t.equal(3, _.ml.nextIndex);
-            _.ml.slice(1, function (err, entries) {
-                t.ok(entries.length === 2);
-                t.deepEqual([ e(1, 1), e(2, 1) ], entries);
-                subcb();
+            _.ml.slice(1, function (err, es) {
+                readStream(es, function (err2, entries) {
+                    t.ok(entries.length === 2);
+                    t.deepEqual([ e(1, 1), e(2, 1) ], entries);
+                    subcb();
+                });
             });
         }
     ];
@@ -210,38 +223,44 @@ test('slices', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 1),
-                    e(3, 1)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0,
+                    2, 1,
+                    3, 1
+                ])
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.slice(0, function (err, entries) {
-                t.ok(entries.length === 4);
-                t.deepEqual(e(0, 0), _.ml.clog[0]);
-                t.deepEqual(e(1, 0), _.ml.clog[1]);
-                t.deepEqual(e(2, 1), _.ml.clog[2]);
-                t.deepEqual(e(3, 1), _.ml.clog[3]);
-                subcb();
+            _.ml.slice(0, function (err, es) {
+                readStream(es, function (err2, entries) {
+                    t.ok(entries.length === 4);
+                    t.deepEqual(e(0, 0), _.ml.clog[0]);
+                    t.deepEqual(e(1, 0), _.ml.clog[1]);
+                    t.deepEqual(e(2, 1), _.ml.clog[2]);
+                    t.deepEqual(e(3, 1), _.ml.clog[3]);
+                    subcb();
+                });
             });
         },
         function (_, subcb) {
-            _.ml.slice(1, 2, function (err, entries) {
-                t.ok(entries.length === 1);
-                t.deepEqual(e(1, 0), entries[0]);
-                subcb();
+            _.ml.slice(1, 2, function (err, es) {
+                readStream(es, function (err2, entries) {
+                    t.ok(entries.length === 1);
+                    t.deepEqual(e(1, 0), entries[0]);
+                    subcb();
+                });
             });
         },
         function (_, subcb) {
-            _.ml.slice(1, 10, function (err, entries) {
-                t.ok(entries.length === 3);
-                t.deepEqual(e(1, 0), entries[0]);
-                t.deepEqual(e(2, 1), entries[1]);
-                t.deepEqual(e(3, 1), entries[2]);
-                subcb();
+            _.ml.slice(1, 10, function (err, es) {
+                readStream(es, function (err2, entries) {
+                    t.ok(entries.length === 3);
+                    t.deepEqual(e(1, 0), entries[0]);
+                    t.deepEqual(e(2, 1), entries[1]);
+                    t.deepEqual(e(3, 1), entries[2]);
+                    subcb();
+                });
             });
         }
     ];
@@ -264,22 +283,22 @@ test('idempotent, two in the middle.', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 0),
-                    e(3, 0)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0,
+                    2, 0,
+                    3, 0
+                ])
             }, subcb);
         },
         function (_, subcb) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(1, 0),
-                    e(2, 0)
-                ]
+                'entries': entryStream([
+                    1, 0,
+                    2, 0
+                ])
             }, subcb);
         },
         function (_, subcb) {
@@ -310,22 +329,22 @@ test('cause truncate from beginning', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 0),
-                    e(3, 0)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0,
+                    2, 0,
+                    3, 0
+                ])
             }, subcb);
         },
         function (_, subcb) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': [
-                    e(0, 0),
-                    e(1, 1)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 1
+                ])
             }, subcb);
         },
         function (_, subcb) {
@@ -355,23 +374,23 @@ test('cause truncate in middle', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 0),
-                    e(3, 0)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0,
+                    2, 0,
+                    3, 0
+                ])
             }, subcb);
         },
         function (_, subcb) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 3,
-                'entries': [
-                    e(1, 0),
-                    e(2, 1),
-                    e(3, 3)
-                ]
+                'entries': entryStream([
+                    1, 0,
+                    2, 1,
+                    3, 3
+                ])
             }, subcb);
         },
         function (_, subcb) {
@@ -402,20 +421,22 @@ test('truncate before commit index', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 0),
-                    e(3, 0)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0,
+                    2, 0,
+                    3, 0
+                ])
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.slice(1, 4, function (e1, entries) {
+            _.ml.slice(1, 4, function (e1, es) {
                 t.ok(e1 === null);
-                _.stateMachine.execute(entries, function (e2) {
-                    t.equal(3, _.stateMachine.commitIndex);
-                    return (subcb(e2));
+                readStream(es, function (err, entries) {
+                    _.stateMachine.execute(entries, function (e2) {
+                        t.equal(3, _.stateMachine.commitIndex);
+                        return (subcb(e2));
+                    });
                 });
             });
         },
@@ -423,11 +444,11 @@ test('truncate before commit index', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 3,
-                'entries': [
-                    e(1, 0),
-                    e(2, 1),
-                    e(3, 3)
-                ]
+                'entries': entryStream([
+                    1, 0,
+                    2, 1,
+                    3, 3
+                ])
             }, subcb);
         }
     ];
@@ -449,20 +470,22 @@ test('truncate at commit index', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 0),
-                    e(3, 0)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0,
+                    2, 0,
+                    3, 0
+                ])
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.slice(1, 4, function (e1, entries) {
-                t.ok(e1 === null);
-                _.stateMachine.execute(entries, function (e2) {
-                    t.equal(3, _.stateMachine.commitIndex);
-                    return (subcb(e2));
+            _.ml.slice(1, 4, function (e1, es) {
+                readStream(es, function (err, entries) {
+                    t.ok(e1 === null);
+                    _.stateMachine.execute(entries, function (e2) {
+                        t.equal(3, _.stateMachine.commitIndex);
+                        return (subcb(e2));
+                    });
                 });
             });
         },
@@ -470,11 +493,11 @@ test('truncate at commit index', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': [
-                    e(1, 0),
-                    e(2, 0),
-                    e(3, 1)
-                ]
+                'entries': entryStream([
+                    1, 0,
+                    2, 0,
+                    3, 1
+                ])
             }, subcb);
         }
     ];
@@ -496,22 +519,22 @@ test('cause replace end, add one', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 0)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0,
+                    2, 0
+                ])
             }, subcb);
         },
         function (_, subcb) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 3,
-                'entries': [
-                    e(1, 0),
-                    e(2, 3),
-                    e(3, 3)
-                ]
+                'entries': entryStream([
+                    1, 0,
+                    2, 3,
+                    3, 3
+                ])
             }, subcb);
         },
         function (_, subcb) {
@@ -543,7 +566,8 @@ test('add first, term > 0', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [ { 'term': 5, 'command': 'command-1-5' } ]
+                'entries': memStream([ { 'term': 5,
+                                         'command': 'command-1-5' } ])
             }, subcb);
         },
         function (_, subcb) {
@@ -571,20 +595,20 @@ test('term mismatch', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0
+                ])
             }, subcb);
         },
         function (_, subcb) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(1, 1),
-                    e(2, 1)
-                ]
+                'entries': entryStream([
+                    1, 1,
+                    2, 1
+                ])
             }, subcb);
         }
     ];
@@ -607,13 +631,13 @@ test('indexes out of order', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 0),
-                    e(3, 0),
-                    e(2, 0),
-                    e(4, 0)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 0,
+                    3, 0,
+                    2, 0,
+                    4, 0
+                ])
             }, subcb);
         }
     ];
@@ -636,13 +660,13 @@ test('term out of order', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(0, 0),
-                    e(1, 1),
-                    e(2, 2),
-                    e(3, 1),
-                    e(4, 2)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 1,
+                    2, 2,
+                    3, 1,
+                    4, 2
+                ])
             }, subcb);
         }
     ];
@@ -665,10 +689,10 @@ test('append past end', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': [
-                    e(5, 5),
-                    e(6, 6)
-                ]
+                'entries': entryStream([
+                    5, 5,
+                    6, 6
+                ])
             }, subcb);
         }
     ];
@@ -691,10 +715,10 @@ test('term later than last entry', function (t) {
             _.ml.append({
                 'commitIndex': 0,
                 'term': 3,
-                'entries': [
-                    e(0, 0),
-                    e(1, 5)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 5
+                ])
             }, subcb);
         }
     ];
@@ -717,10 +741,10 @@ test('commit index later than last entry', function (t) {
             _.ml.append({
                 'commitIndex': 2,
                 'term': 5,
-                'entries': [
-                    e(0, 0),
-                    e(1, 5)
-                ]
+                'entries': entryStream([
+                    0, 0,
+                    1, 5
+                ])
             }, subcb);
         }
     ];

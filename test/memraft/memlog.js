@@ -3,6 +3,7 @@
 var assert = require('assert-plus');
 var events = require('events');
 var error = require('../../lib/error');
+var helper = require('../helper');
 var sprintf = require('extsprintf').sprintf;
 var util = require('util');
 
@@ -75,108 +76,114 @@ MemLog.prototype.append = function (opts, cb) {
     assert.object(opts, 'opts');
     assert.number(opts.commitIndex, 'opts.commitIndex');
     assert.number(opts.term, 'opts.term');
-    //TODO: Make this a stream.
-    assert.arrayOfObject(opts.entries, 'opts.entries');
+    assert.object(opts.entries, 'opts.entries');
 
     var self = this;
     var log = self.log;
     var commitIndex = opts.commitIndex;
     var term = opts.term;
-    var entries = opts.entries;
-    var entry = entries[0];
+    var entriesStream = opts.entries;
+    var entries = [];
 
-    if (entries.length === 0) {
-        return (process.nextTick(cb));
-    }
-    assert.optionalNumber(entry.index, 'entries[0].index');
-    assert.number(entry.term, 'entries[0].term');
-    if (!self.ready) {
-        return (process.nextTick(cb.bind(
-            null, new error.InternalError('I wasn\'t ready yet.'))));
-    }
+    //Just read everything up-front.  This could be refactored to share code
+    // with the leveldb log class, but I wanted to keep this as independant
+    // as possible... for now.
+    entriesStream.on('readable', function () {
+        var entry;
+        while (null !== (entry = entriesStream.read())) {
+            entries.push(entry);
+        }
+    });
 
-    //Append new
-    if (entries.length === 1 && entry.index === undefined) {
-        entry.index = self.clog.length;
-        self.clog.push(entry);
-        self.nextIndex = self.clog.length;
-        return (process.nextTick(cb.bind(null, null, entry)));
-    }
+    entriesStream.on('end', function () {
+        var entry = entries[0];
 
-    //Consistency Check
-    var centry = self.clog[entry.index]; //Funny pun, haha
-    if (centry === undefined || centry.term !== entry.term) {
-        return (process.nextTick(cb.bind(
-            null, new error.TermMismatchError(sprintf(
+        if (entries.length === 0) {
+            return (cb());
+        }
+        assert.optionalNumber(entry.index, 'entries[0].index');
+        assert.number(entry.term, 'entries[0].term');
+        if (!self.ready) {
+            return (cb(new error.InternalError('I wasn\'t ready yet.')));
+        }
+
+        //Append new
+        if (entries.length === 1 && entry.index === undefined) {
+            entry.index = self.clog.length;
+            self.clog.push(entry);
+            self.nextIndex = self.clog.length;
+            return (cb(null, entry));
+        }
+
+        //Consistency Check
+        var centry = self.clog[entry.index]; //Funny pun, haha
+        if (centry === undefined || centry.term !== entry.term) {
+            return (cb(new error.TermMismatchError(sprintf(
                 'at entry %d, command log term %s doesn\'t match %d',
                 entry.index,
                 centry === undefined ? '[undefined]' : '' + entry.term,
-                entry.term)))));
-    }
+                entry.term))));
+        }
 
-    //Sanity checks...
-    var lastEntry = entries[entries.length - 1];
-    if (commitIndex > lastEntry.index) {
-        return (process.nextTick(cb.bind(
-            null, new error.InvalidIndexError(sprintf(
+        //Sanity checks...
+        var lastEntry = entries[entries.length - 1];
+        if (commitIndex > lastEntry.index) {
+            return (cb(new error.InvalidIndexError(sprintf(
                 'commit index %d is ahead of the last log entry ' +
-                    'index %d', commitIndex, lastEntry.index)))));
-    }
+                    'index %d', commitIndex, lastEntry.index))));
+        }
 
-    //Since we make sure terms are strictly increasing below, we only need
-    // to check here that the last term isn't greater than the request term.
-    if (term < lastEntry.term) {
-        return (process.nextTick(cb.bind(
-            null, new error.InvalidTermError(sprintf(
+        //Since we make sure terms are strictly increasing below, we only need
+        // to check here that the last term isn't greater than the request term.
+        if (term < lastEntry.term) {
+            return (cb(new error.InvalidTermError(sprintf(
                 'request term %d is behind the last log term %d',
-                term, lastEntry.term)))));
-    }
-
-    //Verify indexes are in order, terms are strictly increasing
-    var loopTerm = entry.term;
-    for (var i = 1; i < entries.length; ++i) {
-        var e = entries[i];
-        if (e.index !== (entry.index + i)) {
-            return (process.nextTick(cb.bind(
-                null, new error.InvalidIndexError(sprintf(
-                    'index isn\'t strictly increasing at %d', i)))));
+                term, lastEntry.term))));
         }
-        if (e.term < loopTerm) {
-            return (process.nextTick(cb.bind(
-                null, new error.InvalidTermError(sprintf(
-                    'term isn\'t strictly increasing at %d', i)))));
-        }
-        loopTerm = e.term;
-    }
 
-    //Since truncation isn't safe unless the terms diverge, we have to
-    // look at each entry.
-    for (i = 1; i < entries.length; ++i) {
-        e = entries[i];
-        //Truncate if necessary...
-        if (self.clog[e.index] && self.clog[e.index].term != e.term) {
-            //Up until now, all the records should have been read-and-verify
-            // only.  Since we're at the point where we'll actually do damage
-            // (truncation), we do some sanity checking.
-            if (self.stateMachine.commitIndex >= e.index) {
-                var message = sprintf(
-                    'attempt to truncate before state machine\'s ' +
-                        'commit index', i);
-                log.error({
-                    'stateMachineIndex': self.stateMachine.commitIndex,
-                    'oldEntry': self.clog[e.index],
-                    'newEntry': e
-                }, message);
-                return (process.nextTick(cb.bind(
-                    null, new error.InternalError(message))));
+        //Verify indexes are in order, terms are strictly increasing
+        var loopTerm = entry.term;
+        for (var i = 1; i < entries.length; ++i) {
+            var e = entries[i];
+            if (e.index !== (entry.index + i)) {
+                return (cb(new error.InvalidIndexError(sprintf(
+                    'index isn\'t strictly increasing at %d', i))));
             }
-            self.clog.length = e.index;
+            if (e.term < loopTerm) {
+                return (cb(new error.InvalidTermError(sprintf(
+                    'term isn\'t strictly increasing at %d', i))));
+            }
+            loopTerm = e.term;
         }
-        self.clog[e.index] = e;
-    }
 
-    self.nextIndex = self.clog.length;
-    return (process.nextTick(cb));
+        //Since truncation isn't safe unless the terms diverge, we have to
+        // look at each entry.
+        for (i = 1; i < entries.length; ++i) {
+            e = entries[i];
+            //Truncate if necessary...
+            if (self.clog[e.index] && self.clog[e.index].term != e.term) {
+                //Up until now, all the records should have been read-and-verify
+                // only.  Since we're at the point where we'll actually do
+                // damage (truncation), we do some sanity checking.
+                if (self.stateMachine.commitIndex >= e.index) {
+                    var message = sprintf(
+                        'attempt to truncate before state machine\'s ' +
+                            'commit index', i);
+                    log.error({
+                        'stateMachineIndex': self.stateMachine.commitIndex,
+                        'oldEntry': self.clog[e.index],
+                        'newEntry': e
+                    }, message);
+                    return (cb(new error.InternalError(message)));
+                }
+                self.clog.length = e.index;
+            }
+            self.clog[e.index] = e;
+        }
+
+        self.nextIndex = self.clog.length;
+        return (cb());
+    });
 };
 
 
@@ -194,7 +201,8 @@ MemLog.prototype.slice = function (start, end, cb) {
         return (process.nextTick(cb.bind(
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
-    return (process.nextTick(cb.bind(null, null, self.clog.slice(start, end))));
+    return (process.nextTick(
+        cb.bind(null, null, helper.memStream(self.clog.slice(start, end)))));
 };
 
 
