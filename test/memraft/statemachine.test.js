@@ -2,6 +2,7 @@
 
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
+var memStream = require('../../lib').memStream;
 var StateMachine = require('./statemachine');
 var vasync = require('vasync');
 
@@ -33,9 +34,9 @@ test('statemachine init and execute one', function (t) {
             subcb();
         },
         function (_, subcb) {
-            sm.execute([
+            sm.execute(memStream([
                 { 'index': 1, 'command': 'one' }
-            ], function (err) {
+            ]), function (err) {
                 t.equal('one', sm.data);
                 t.equal(1, sm.commitIndex);
                 subcb(err);
@@ -61,14 +62,14 @@ test('statemachine execute many', function (t) {
             sm.on('ready', subcb);
         },
         function (_, subcb) {
-            sm.execute([
+            sm.execute(memStream([
                 { 'index': 1, 'command': 'one' },
                 { 'index': 2, 'command': 'two' },
                 { 'index': 3, 'command': 'three' },
                 { 'index': 4, 'command': 'four' },
                 { 'index': 5, 'command': 'five' },
                 { 'index': 6, 'command': 'six' }
-            ], function (err) {
+            ]), function (err) {
                 t.equal('six', sm.data);
                 t.equal(6, sm.commitIndex);
                 subcb(err);
@@ -94,9 +95,9 @@ test('statemachine first out of order', function (t) {
             sm.on('ready', subcb);
         },
         function (_, subcb) {
-            sm.execute([
+            sm.execute(memStream([
                 { 'index': 2, 'command': 'two' }
-            ], subcb);
+            ]), subcb);
         }
     ];
     vasync.pipeline({
@@ -119,12 +120,12 @@ test('statemachine middle out of order', function (t) {
             sm.on('ready', subcb);
         },
         function (_, subcb) {
-            sm.execute([
+            sm.execute(memStream([
                 { 'index': 1, 'command': 'one' },
                 { 'index': 2, 'command': 'two' },
                 { 'index': 4, 'command': 'four' },
                 { 'index': 3, 'command': 'three' }
-            ], subcb);
+            ]), subcb);
         }
     ];
     vasync.pipeline({

@@ -3,7 +3,7 @@
 var assert = require('assert-plus');
 var events = require('events');
 var error = require('../../lib/error');
-var helper = require('../helper');
+var lib = require('../../lib');
 var sprintf = require('extsprintf').sprintf;
 var util = require('util');
 
@@ -202,7 +202,7 @@ MemLog.prototype.slice = function (start, end, cb) {
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
     return (process.nextTick(
-        cb.bind(null, null, helper.memStream(self.clog.slice(start, end)))));
+        cb.bind(null, null, lib.memStream(self.clog.slice(start, end)))));
 };
 
 

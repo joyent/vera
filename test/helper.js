@@ -2,8 +2,7 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var stream = require('stream');
-
+var lib = require('../lib');
 
 
 ///--- Helpers
@@ -35,28 +34,8 @@ function entryStream(a) {
     for (var i = 0; i < a.length; i += 2) {
         entries.push(e(a[i], a[i + 1]));
     }
-    return (memStream(entries));
+    return (lib.memStream(entries));
 }
-
-
-function memStream(a) {
-    var r = stream.Readable({ 'objectMode': true });
-    r.ended = false;
-    r.i = 0;
-    r._read = function () {
-        if (r.ended === true) {
-            return;
-        }
-        r.push(a[r.i]);
-        r.i += 1;
-        if (r.i === a.length) {
-            r.ended = true;
-            r.push(null);
-        }
-    };
-    return (r);
-}
-
 
 
 ///--- Exports
@@ -104,6 +83,5 @@ module.exports = {
 
     createLogger: createLogger,
     e: e,
-    entryStream: entryStream,
-    memStream: memStream
+    entryStream: entryStream
 };

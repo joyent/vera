@@ -8,6 +8,7 @@ var bunyan = require('bunyan');
 var fs = require('fs');
 var helper = require('./helper.js');
 var LevelDbLog = require('../lib/leveldb_log');
+var lib = require('../lib');
 var path = require('path');
 var StateMachine = require('./memraft/statemachine');
 var stream = require('stream');
@@ -22,7 +23,7 @@ var before = helper.before;
 var test = helper.test;
 var e = helper.e;
 var entryStream = helper.entryStream;
-var memStream = helper.memStream;
+var memStream = lib.memStream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'leveldb_log-test',

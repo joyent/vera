@@ -3,6 +3,7 @@
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var helper = require('./helper.js');
+var lib = require('../lib');
 var memraft = require('./memraft');
 var vasync = require('vasync');
 
@@ -10,6 +11,9 @@ var vasync = require('vasync');
 
 ///--- Globals
 
+var e = helper.e;
+var entryStream = helper.entryStream;
+var memStream = lib.memStream;
 var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
@@ -21,16 +25,6 @@ var LOW_LEADER_TIMEOUT = 2;
 
 
 ///--- Helpers
-
-//TODO: This is duplicated in a couple places.  Move somewhere.
-function e(index, term) {
-    return ({
-        'index': index,
-        'term': term,
-        'command': index === 0 ? 'noop' : 'command-' + index + '-' + term
-    });
-}
-
 
 function initRaft(opts) {
     opts = opts || {};
@@ -59,12 +53,12 @@ function initRaft(opts) {
                         'operation': 'appendEntries',
                         'term': 3,
                         'leaderId': 'raft-1',
-                        'entries': [
+                        'entries': memStream([
                             e(0, 0, 'noop'),
                             e(1, 1, 'one'),
                             e(2, 2, 'two'),
                             e(3, 3, 'three')
-                        ],
+                        ]),
                         'commitIndex': 2
                     }, subcb);
                 },
@@ -83,9 +77,9 @@ function initRaft(opts) {
                         'operation': 'appendEntries',
                         'term': 3,
                         'leaderId': 'raft-1',
-                        'entries': [
+                        'entries': memStream([
                             e(3, 3, 'three')
-                        ],
+                        ]),
                         'commitIndex': 2
                     }, subcb);
                 }
@@ -106,7 +100,7 @@ function ae(req) {
     req.operation = req.operation || 'appendEntries';
     req.term = req.term === undefined ? 0 : req.term;
     req.leaderId = req.leaderId || 'raft-1';
-    req.entries = req.entries || [ e(0, 0) ];
+    req.entries = req.entries || entryStream([ 0, 0 ]);
     req.commitIndex = req.commitIndex === undefined ? 0 : req.commitIndex;
     return (req);
 }
@@ -196,7 +190,7 @@ test('first append, first commit', function (t) {
             function append(_, subcb) {
                 var r = _.raft;
                 r.appendEntries(ae({
-                    'entries': [ e(0, 0), e(1, 0) ]
+                    'entries': entryStream([ 0, 0, 1, 0 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(0, res.term);
@@ -218,7 +212,7 @@ test('first append, first commit', function (t) {
                 var r = _.raft;
                 r.appendEntries(ae({
                     'commitIndex': 1,
-                    'entries': [ e(0, 0), e(1, 0) ]
+                    'entries': entryStream([ 0, 0, 1, 0 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(0, res.term);
@@ -380,7 +374,7 @@ test('idempotent append at end', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -393,7 +387,7 @@ test('idempotent append at end', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -432,7 +426,7 @@ test('cause truncation', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(2, 2), e(3, 2) ]
+                    'entries': entryStream([ 2, 2, 3, 2 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -471,7 +465,7 @@ test('log term past request term', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 4) ]
+                    'entries': entryStream([ 3, 3, 4, 4 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -512,7 +506,7 @@ test('consistency fail with term mismatch', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 2), e(4, 2) ]
+                    'entries': entryStream([ 3, 2, 4, 2 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -553,7 +547,7 @@ test('consistency fail with index too far ahead', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(5, 3), e(6, 3) ]
+                    'entries': entryStream([ 5, 3, 6, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -594,7 +588,7 @@ test('leader mismatch (a very bad thing)', function (t) {
                     'term': 3,
                     'leaderId': 'raft-2',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -635,7 +629,7 @@ test('two successful appends', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -648,7 +642,7 @@ test('two successful appends', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(4, 3), e(5, 3) ]
+                    'entries': entryStream([ 4, 3, 5, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -691,7 +685,7 @@ test('previously voted in term, update term with append', function (t) {
                     'term': 4,
                     'leaderId': 'raft-2',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(4, res.term);
@@ -734,7 +728,7 @@ test('only commit index update (like a heartbeat)', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 3,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -781,7 +775,7 @@ test('leader step down', function (t) {
                     'term': 5,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(5, res.term);
@@ -828,7 +822,7 @@ test('some other leader tries append', function (t) {
                     'term': 4,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(4, res.term);
@@ -877,7 +871,7 @@ test('candidate step down, same term', function (t) {
                     'term': 4,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(4, res.term);
@@ -924,7 +918,7 @@ test('candidate step down, future term', function (t) {
                     'term': 5,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(5, res.term);
@@ -963,7 +957,7 @@ test('append one, beginning', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 0,
-                    'entries': [ e(0, 0), e(1, 1) ]
+                    'entries': entryStream([ 0, 0, 1, 1 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1001,7 +995,7 @@ test('append one, middle', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(1, 1), e(2, 2) ]
+                    'entries': entryStream([ 1, 1, 2, 2 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1039,7 +1033,7 @@ test('append one, end', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1079,7 +1073,7 @@ test('append many, beginning', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(0, 0), e(1, 1), e(2, 2) ]
+                    'entries': entryStream([ 0, 0, 1, 1, 2, 2 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1117,7 +1111,7 @@ test('append many, middle', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(1, 1), e(2, 2), e(3, 3) ]
+                    'entries': entryStream([ 1, 1, 2, 2, 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1155,7 +1149,7 @@ test('append many, end', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3, 5, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1195,7 +1189,7 @@ test('entries out of order', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(2, 2), e(5, 3) ]
+                    'entries': entryStream([ 3, 3, 2, 2, 5, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1236,7 +1230,7 @@ test('terms not strictly increasing', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 2,
-                    'entries': [ e(3, 3), e(4, 2), e(5, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 2, 5, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1279,7 +1273,7 @@ test('negative commit index', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': -1,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1317,7 +1311,7 @@ test('commit index in past', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': -1,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1355,7 +1349,7 @@ test('commit index in future', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 3,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1396,7 +1390,7 @@ test('commit index too far in future', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 4,
-                    'entries': [ e(3, 3) ]
+                    'entries': entryStream([ 3, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1437,7 +1431,7 @@ test('commit index is in list of updates', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 4,
-                    'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3, 5, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1475,7 +1469,7 @@ test('commit index is end of updates', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 5,
-                    'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3, 5, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1525,7 +1519,7 @@ test('concurrent appends, same terms', function (t) {
                         'term': 3,
                         'leaderId': 'raft-1',
                         'commitIndex': 4,
-                        'entries': [ e(3, 3), e(4, 3) ]
+                        'entries': entryStream([ 3, 3, 4, 3 ])
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(3, res.term);
@@ -1539,7 +1533,7 @@ test('concurrent appends, same terms', function (t) {
                         'term': 3,
                         'leaderId': 'raft-1',
                         'commitIndex': 5,
-                        'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
+                        'entries': entryStream([ 3, 3, 4, 3, 5, 3 ])
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(3, res.term);
@@ -1591,7 +1585,7 @@ test('concurrent appends, same future terms', function (t) {
                         'term': 4,
                         'leaderId': 'raft-2',
                         'commitIndex': 4,
-                        'entries': [ e(3, 3), e(4, 4) ]
+                        'entries': entryStream([ 3, 3, 4, 4 ])
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(4, res.term);
@@ -1605,7 +1599,7 @@ test('concurrent appends, same future terms', function (t) {
                         'term': 4,
                         'leaderId': 'raft-2',
                         'commitIndex': 5,
-                        'entries': [ e(3, 3), e(4, 4), e(5, 4) ]
+                        'entries': entryStream([ 3, 3, 4, 4, 5, 4 ])
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(4, res.term);
@@ -1657,7 +1651,7 @@ test('concurrent appends, first future term', function (t) {
                         'term': 5,
                         'leaderId': 'raft-2',
                         'commitIndex': 4,
-                        'entries': [ e(3, 3), e(4, 5) ]
+                        'entries': entryStream([ 3, 3, 4, 5 ])
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(5, res.term);
@@ -1671,7 +1665,7 @@ test('concurrent appends, first future term', function (t) {
                         'term': 4,
                         'leaderId': 'raft-2',
                         'commitIndex': 5,
-                        'entries': [ e(3, 3), e(4, 4), e(5, 4) ]
+                        'entries': entryStream([ 3, 3, 4, 4, 5, 4 ])
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(5, res.term); //From ^^
@@ -1727,7 +1721,7 @@ test('concurrent appends, second future term', function (t) {
                         'term': 4,
                         'leaderId': 'raft-2',
                         'commitIndex': 4,
-                        'entries': [ e(3, 3), e(4, 4) ]
+                        'entries': entryStream([ 3, 3, 4, 4 ])
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(5, res.term); //This could be either
@@ -1741,7 +1735,7 @@ test('concurrent appends, second future term', function (t) {
                         'term': 5,
                         'leaderId': 'raft-2',
                         'commitIndex': 5,
-                        'entries': [ e(3, 3), e(4, 4), e(5, 5) ]
+                        'entries': entryStream([ 3, 3, 4, 4, 5, 5 ])
                     }), function (err, res) {
                         t.ok(res);
                         t.equal(5, res.term);
@@ -1784,7 +1778,7 @@ test('index goes before first entry (index of -1)', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 0,
-                    'entries': [ e(-1, -1), e(0, 0) ]
+                    'entries': entryStream([ -1, -1, 0, 0 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1825,7 +1819,7 @@ test('leader not known in peers', function (t) {
                     'term': 4,
                     'leaderId': 'raft-13',
                     'commitIndex': 0,
-                    'entries': [ e(0, 0) ]
+                    'entries': entryStream([ 0, 0 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1866,7 +1860,7 @@ test('attempt to truncate below commit index', function (t) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'commitIndex': 5,
-                    'entries': [ e(3, 3), e(4, 3), e(5, 3) ]
+                    'entries': entryStream([ 3, 3, 4, 3, 5, 3 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(3, res.term);
@@ -1880,7 +1874,7 @@ test('attempt to truncate below commit index', function (t) {
                     'term': 4,
                     'leaderId': 'raft-2',
                     'commitIndex': 5,
-                    'entries': [ e(3, 3), e(4, 4), e(5, 4), e(6, 4) ]
+                    'entries': entryStream([ 3, 3, 4, 4, 5, 4, 6, 4 ])
                 }), function (err, res) {
                     t.ok(res);
                     t.equal(4, res.term);

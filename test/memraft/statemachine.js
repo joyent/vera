@@ -37,7 +37,7 @@ module.exports = StateMachine;
 ///--- API
 
 StateMachine.prototype.execute = function (entries, cb) {
-    assert.arrayOfObject(entries, 'entries');
+    assert.object(entries, 'entries');
     assert.func(cb, 'cb');
 
     var self = this;
@@ -46,26 +46,26 @@ StateMachine.prototype.execute = function (entries, cb) {
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
 
-    if (entries.length === 0) {
-        return (process.nextTick(cb));
-    }
-
-    for (var i = 0; i < entries.length; ++i) {
-        var entry = entries[i];
-        if (entry.index !== (self.commitIndex + 1)) {
-            return (process.nextTick(cb.bind(
-                null, new error.InternalError(sprintf(
+    entries.on('readable', function () {
+        var entry;
+        while (null !== (entry = entries.read())) {
+            if (entry.index !== (self.commitIndex + 1)) {
+                //A little heavy-handed here...
+                entries.removeAllListeners();
+                return (cb(new error.InternalError(sprintf(
                     'out of order commit, commit at %d, tried to apply entry ' +
-                        'with index %d', self.commitIndex, entry.index)))));
+                        'with index %d', self.commitIndex, entry.index))));
+            }
+            if (entry.command !== 'noop') {
+                self.data = entry.command;
+            }
+            ++self.commitIndex;
         }
-        if (entry.command !== 'noop') {
-            self.data = entry.command;
-        }
-        ++self.commitIndex;
-    }
+    });
 
-    process.nextTick(cb);
+    entries.on('end', cb);
 };
+
 
 
 ///--- For Debugging
@@ -73,7 +73,7 @@ StateMachine.prototype.execute = function (entries, cb) {
 StateMachine.prototype.dump = function () {
     var self = this;
     console.log({
-        'peers': self.peers,
-        'messages': self.messages
+        'commitIndex': self.commitIndex,
+        'data': self.data
     });
 };

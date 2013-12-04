@@ -3,6 +3,7 @@
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var helper = require('./helper.js');
+var lib = require('../lib');
 var memraft = require('./memraft');
 var vasync = require('vasync');
 
@@ -10,6 +11,9 @@ var vasync = require('vasync');
 
 ///--- Globals
 
+var e = helper.e;
+var entryStream = helper.entryStream;
+var memStream = lib.memStream;
 var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
@@ -21,16 +25,6 @@ var LOW_LEADER_TIMEOUT = 2;
 
 
 ///--- Helpers
-
-//TODO: This is duplicated in a couple places.  Move somewhere.
-function e(index, term) {
-    return ({
-        'index': index,
-        'term': term,
-        'command': index === 0 ? 'noop' : 'command-' + index + '-' + term
-    });
-}
-
 
 function initRaft(opts) {
     opts = opts || {};
@@ -59,12 +53,12 @@ function initRaft(opts) {
                         'operation': 'appendEntries',
                         'term': 3,
                         'leaderId': 'raft-1',
-                        'entries': [
+                        'entries': memStream([
                             e(0, 0, 'noop'),
                             e(1, 1, 'one'),
                             e(2, 2, 'two'),
                             e(3, 3, 'three')
-                        ],
+                        ]),
                         'commitIndex': 2
                     }, subcb);
                 }

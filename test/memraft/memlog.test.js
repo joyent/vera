@@ -2,6 +2,7 @@
 
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
+var lib = require('../../lib');
 var MemLog = require('./memlog');
 var StateMachine = require('./statemachine');
 var vasync = require('vasync');
@@ -12,7 +13,7 @@ var vasync = require('vasync');
 
 var e = helper.e;
 var entryStream = helper.entryStream;
-var memStream = helper.memStream;
+var memStream = lib.memStream;
 var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
@@ -430,13 +431,11 @@ test('truncate before commit index', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.slice(1, 4, function (e1, es) {
+            _.ml.slice(1, 4, function (e1, entries) {
                 t.ok(e1 === null);
-                readStream(es, function (err, entries) {
-                    _.stateMachine.execute(entries, function (e2) {
-                        t.equal(3, _.stateMachine.commitIndex);
-                        return (subcb(e2));
-                    });
+                _.stateMachine.execute(entries, function (e2) {
+                    t.equal(3, _.stateMachine.commitIndex);
+                    return (subcb(e2));
                 });
             });
         },
@@ -479,13 +478,11 @@ test('truncate at commit index', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.slice(1, 4, function (e1, es) {
-                readStream(es, function (err, entries) {
-                    t.ok(e1 === null);
-                    _.stateMachine.execute(entries, function (e2) {
-                        t.equal(3, _.stateMachine.commitIndex);
-                        return (subcb(e2));
-                    });
+            _.ml.slice(1, 4, function (e1, entries) {
+                t.ok(e1 === null);
+                _.stateMachine.execute(entries, function (e2) {
+                    t.equal(3, _.stateMachine.commitIndex);
+                    return (subcb(e2));
                 });
             });
         },
