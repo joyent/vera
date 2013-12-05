@@ -11,6 +11,7 @@ var vasync = require('vasync');
 
 ///--- Globals
 
+var before = helper.before;
 var e = helper.e;
 var entryStream = helper.entryStream;
 var memStream = lib.memStream;
@@ -23,28 +24,30 @@ var LOG = bunyan.createLogger({
 
 
 
-///--- Helpers
+///--- Setup/Teardown
 
-function initMemLog() {
-    return (function init(_, cb) {
-        vasync.pipeline({
-            funcs: [
-                function initStateMachine(o, subcb) {
-                    _.stateMachine = new StateMachine({ 'log': LOG });
-                    _.stateMachine.on('ready', subcb);
-                },
-                function initMemLogHere(o, subcb) {
-                    _.ml = new MemLog({ 'log': LOG,
-                                        'stateMachine': _.stateMachine });
-                    _.ml.on('ready', subcb);
-                }
-            ]
-        }, function (err) {
-            cb(err);
-        });
+before(function (cb) {
+    var self = this;
+    vasync.pipeline({
+        funcs: [
+            function initStateMachine(_, subcb) {
+                self.stateMachine = new StateMachine({ 'log': LOG });
+                self.stateMachine.on('ready', subcb);
+            },
+            function initMemLogHere(_, subcb) {
+                self.ml = new MemLog({ 'log': LOG,
+                                    'stateMachine': self.stateMachine });
+                self.ml.on('ready', subcb);
+            }
+        ]
+    }, function (err) {
+        cb(err);
     });
-}
+});
 
+
+
+///--- Helpers
 
 function readStream(s, cb) {
     var res = [];
@@ -63,20 +66,20 @@ function readStream(s, cb) {
 ///--- Tests
 
 test('consistency check on 0, success', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([ 0, 0 ])
             }, subcb);
         },
         function (_, subcb) {
-            t.ok(_.ml.clog.length === 1);
-            t.deepEqual(e(0, 0), _.ml.clog[0]);
-            t.equal(1, _.ml.nextIndex);
-            _.ml.slice(0, function (err, es) {
+            t.ok(self.ml.clog.length === 1);
+            t.deepEqual(e(0, 0), self.ml.clog[0]);
+            t.equal(1, self.ml.nextIndex);
+            self.ml.slice(0, function (err, es) {
                 readStream(es, function (err2, entries) {
                     t.ok(entries.length === 1);
                     t.deepEqual([ e(0, 0) ], entries);
@@ -98,10 +101,10 @@ test('consistency check on 0, success', function (t) {
 
 
 test('consistency check on 0, fail', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([ 0, 1 ])
@@ -122,10 +125,10 @@ test('consistency check on 0, fail', function (t) {
 
 
 test('append one at a time', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 //No index, so append!
@@ -137,13 +140,13 @@ test('append one at a time', function (t) {
                     return;
                 }
                 t.equal(1, entry.index);
-                t.deepEqual(_.ml.last(), entry);
-                t.equal(2, _.ml.nextIndex);
+                t.deepEqual(self.ml.last(), entry);
+                t.equal(2, self.ml.nextIndex);
                 subcb();
             });
         },
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 //No index, so append!
@@ -151,16 +154,16 @@ test('append one at a time', function (t) {
                                          'command': 'command-2-2' } ])
             }, function (err, entry) {
                 t.equal(2, entry.index);
-                t.deepEqual(_.ml.last(), entry);
+                t.deepEqual(self.ml.last(), entry);
                 subcb();
             });
         },
         function (_, subcb) {
-            t.ok(_.ml.clog.length === 3);
-            t.deepEqual(e(0, 0), _.ml.clog[0]);
-            t.deepEqual(e(1, 2), _.ml.clog[1]);
-            t.deepEqual(e(2, 2), _.ml.clog[2]);
-            t.equal(3, _.ml.nextIndex);
+            t.ok(self.ml.clog.length === 3);
+            t.deepEqual(e(0, 0), self.ml.clog[0]);
+            t.deepEqual(e(1, 2), self.ml.clog[1]);
+            t.deepEqual(e(2, 2), self.ml.clog[2]);
+            t.equal(3, self.ml.nextIndex);
             subcb();
         }
     ];
@@ -177,10 +180,10 @@ test('append one at a time', function (t) {
 
 
 test('add two success', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 1,
                 'entries': entryStream([
@@ -191,12 +194,12 @@ test('add two success', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            t.ok(_.ml.clog.length === 3);
-            t.deepEqual(e(0, 0), _.ml.clog[0]);
-            t.deepEqual(e(1, 1), _.ml.clog[1]);
-            t.deepEqual(e(2, 1), _.ml.clog[2]);
-            t.equal(3, _.ml.nextIndex);
-            _.ml.slice(1, function (err, es) {
+            t.ok(self.ml.clog.length === 3);
+            t.deepEqual(e(0, 0), self.ml.clog[0]);
+            t.deepEqual(e(1, 1), self.ml.clog[1]);
+            t.deepEqual(e(2, 1), self.ml.clog[2]);
+            t.equal(3, self.ml.nextIndex);
+            self.ml.slice(1, function (err, es) {
                 readStream(es, function (err2, entries) {
                     t.ok(entries.length === 2);
                     t.deepEqual([ e(1, 1), e(2, 1) ], entries);
@@ -218,10 +221,10 @@ test('add two success', function (t) {
 
 
 test('slices', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 1,
                 'entries': entryStream([
@@ -233,19 +236,19 @@ test('slices', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.slice(0, function (err, es) {
+            self.ml.slice(0, function (err, es) {
                 readStream(es, function (err2, entries) {
                     t.ok(entries.length === 4);
-                    t.deepEqual(e(0, 0), _.ml.clog[0]);
-                    t.deepEqual(e(1, 0), _.ml.clog[1]);
-                    t.deepEqual(e(2, 1), _.ml.clog[2]);
-                    t.deepEqual(e(3, 1), _.ml.clog[3]);
+                    t.deepEqual(e(0, 0), self.ml.clog[0]);
+                    t.deepEqual(e(1, 0), self.ml.clog[1]);
+                    t.deepEqual(e(2, 1), self.ml.clog[2]);
+                    t.deepEqual(e(3, 1), self.ml.clog[3]);
                     subcb();
                 });
             });
         },
         function (_, subcb) {
-            _.ml.slice(1, 2, function (err, es) {
+            self.ml.slice(1, 2, function (err, es) {
                 readStream(es, function (err2, entries) {
                     t.ok(entries.length === 1);
                     t.deepEqual(e(1, 0), entries[0]);
@@ -254,7 +257,7 @@ test('slices', function (t) {
             });
         },
         function (_, subcb) {
-            _.ml.slice(1, 10, function (err, es) {
+            self.ml.slice(1, 10, function (err, es) {
                 readStream(es, function (err2, entries) {
                     t.ok(entries.length === 3);
                     t.deepEqual(e(1, 0), entries[0]);
@@ -278,10 +281,10 @@ test('slices', function (t) {
 
 
 test('idempotent, two in the middle.', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -293,7 +296,7 @@ test('idempotent, two in the middle.', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -303,11 +306,11 @@ test('idempotent, two in the middle.', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            t.ok(_.ml.clog.length === 4);
-            t.deepEqual(e(0, 0), _.ml.clog[0]);
-            t.deepEqual(e(1, 0), _.ml.clog[1]);
-            t.deepEqual(e(2, 0), _.ml.clog[2]);
-            t.deepEqual(e(3, 0), _.ml.clog[3]);
+            t.ok(self.ml.clog.length === 4);
+            t.deepEqual(e(0, 0), self.ml.clog[0]);
+            t.deepEqual(e(1, 0), self.ml.clog[1]);
+            t.deepEqual(e(2, 0), self.ml.clog[2]);
+            t.deepEqual(e(3, 0), self.ml.clog[3]);
             subcb();
         }
     ];
@@ -324,10 +327,10 @@ test('idempotent, two in the middle.', function (t) {
 
 
 test('cause truncate from beginning', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -339,7 +342,7 @@ test('cause truncate from beginning', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 1,
                 'entries': entryStream([
@@ -349,10 +352,10 @@ test('cause truncate from beginning', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            t.ok(_.ml.clog.length === 2);
-            t.deepEqual(e(0, 0), _.ml.clog[0]);
-            t.deepEqual(e(1, 1), _.ml.clog[1]);
-            t.equal(2, _.ml.nextIndex);
+            t.ok(self.ml.clog.length === 2);
+            t.deepEqual(e(0, 0), self.ml.clog[0]);
+            t.deepEqual(e(1, 1), self.ml.clog[1]);
+            t.equal(2, self.ml.nextIndex);
             subcb();
         }
     ];
@@ -369,10 +372,10 @@ test('cause truncate from beginning', function (t) {
 
 
 test('cause truncate in middle', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -384,7 +387,7 @@ test('cause truncate in middle', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 3,
                 'entries': entryStream([
@@ -395,11 +398,11 @@ test('cause truncate in middle', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            t.ok(_.ml.clog.length === 4);
-            t.deepEqual(e(0, 0), _.ml.clog[0]);
-            t.deepEqual(e(1, 0), _.ml.clog[1]);
-            t.deepEqual(e(2, 1), _.ml.clog[2]);
-            t.deepEqual(e(3, 3), _.ml.clog[3]);
+            t.ok(self.ml.clog.length === 4);
+            t.deepEqual(e(0, 0), self.ml.clog[0]);
+            t.deepEqual(e(1, 0), self.ml.clog[1]);
+            t.deepEqual(e(2, 1), self.ml.clog[2]);
+            t.deepEqual(e(3, 3), self.ml.clog[3]);
             subcb();
         }
     ];
@@ -416,10 +419,10 @@ test('cause truncate in middle', function (t) {
 
 
 test('truncate before commit index', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -431,16 +434,16 @@ test('truncate before commit index', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.slice(1, 4, function (e1, entries) {
+            self.ml.slice(1, 4, function (e1, entries) {
                 t.ok(e1 === null);
-                _.stateMachine.execute(entries, function (e2) {
-                    t.equal(3, _.stateMachine.commitIndex);
+                self.stateMachine.execute(entries, function (e2) {
+                    t.equal(3, self.stateMachine.commitIndex);
                     return (subcb(e2));
                 });
             });
         },
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 3,
                 'entries': entryStream([
@@ -463,10 +466,10 @@ test('truncate before commit index', function (t) {
 
 
 test('truncate at commit index', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -478,16 +481,16 @@ test('truncate at commit index', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.slice(1, 4, function (e1, entries) {
+            self.ml.slice(1, 4, function (e1, entries) {
                 t.ok(e1 === null);
-                _.stateMachine.execute(entries, function (e2) {
-                    t.equal(3, _.stateMachine.commitIndex);
+                self.stateMachine.execute(entries, function (e2) {
+                    t.equal(3, self.stateMachine.commitIndex);
                     return (subcb(e2));
                 });
             });
         },
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 1,
                 'entries': entryStream([
@@ -510,10 +513,10 @@ test('truncate at commit index', function (t) {
 
 
 test('cause replace end, add one', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -524,7 +527,7 @@ test('cause replace end, add one', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 3,
                 'entries': entryStream([
@@ -535,12 +538,12 @@ test('cause replace end, add one', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            t.ok(_.ml.clog.length === 4);
-            t.deepEqual(e(0, 0), _.ml.clog[0]);
-            t.deepEqual(e(1, 0), _.ml.clog[1]);
-            t.deepEqual(e(2, 3), _.ml.clog[2]);
-            t.deepEqual(e(3, 3), _.ml.clog[3]);
-            t.equal(4, _.ml.nextIndex);
+            t.ok(self.ml.clog.length === 4);
+            t.deepEqual(e(0, 0), self.ml.clog[0]);
+            t.deepEqual(e(1, 0), self.ml.clog[1]);
+            t.deepEqual(e(2, 3), self.ml.clog[2]);
+            t.deepEqual(e(3, 3), self.ml.clog[3]);
+            t.equal(4, self.ml.nextIndex);
             subcb();
         }
     ];
@@ -557,10 +560,10 @@ test('cause replace end, add one', function (t) {
 
 
 test('add first, term > 0', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': memStream([ { 'term': 5,
@@ -568,8 +571,8 @@ test('add first, term > 0', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            t.ok(_.ml.clog.length === 2);
-            t.deepEqual(e(1, 5), _.ml.clog[1]);
+            t.ok(self.ml.clog.length === 2);
+            t.deepEqual(e(1, 5), self.ml.clog[1]);
             subcb();
         }
     ];
@@ -586,10 +589,10 @@ test('add first, term > 0', function (t) {
 
 
 test('term mismatch', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -599,7 +602,7 @@ test('term mismatch', function (t) {
             }, subcb);
         },
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -622,10 +625,10 @@ test('term mismatch', function (t) {
 
 
 test('indexes out of order', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -651,10 +654,10 @@ test('indexes out of order', function (t) {
 
 
 test('term out of order', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -680,10 +683,10 @@ test('term out of order', function (t) {
 
 
 test('append past end', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 0,
                 'entries': entryStream([
@@ -706,10 +709,10 @@ test('append past end', function (t) {
 
 
 test('term later than last entry', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 0,
                 'term': 3,
                 'entries': entryStream([
@@ -732,10 +735,10 @@ test('term later than last entry', function (t) {
 
 
 test('commit index later than last entry', function (t) {
+    var self = this;
     var funcs = [
-        initMemLog(),
         function (_, subcb) {
-            _.ml.append({
+            self.ml.append({
                 'commitIndex': 2,
                 'term': 5,
                 'entries': entryStream([

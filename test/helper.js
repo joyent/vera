@@ -2,7 +2,10 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
+var fs = require('fs');
 var lib = require('../lib');
+var vasync = require('vasync');
+
 
 
 ///--- Helpers
@@ -36,6 +39,34 @@ function entryStream(a) {
     }
     return (lib.memStream(entries));
 }
+
+
+function rmrf(f, cb) {
+    fs.stat(f, function (err, stats) {
+        if (err) {
+            return (cb(err));
+        }
+        if (stats.isDirectory()) {
+            fs.readdir(f, function (err2, files) {
+                if (err2) {
+                    return (cb(err2));
+                }
+                vasync.forEachPipeline({
+                    'func': rmrf,
+                    'inputs': files.map(function (x) { return (f + '/' + x); })
+                }, function (err3) {
+                    if (err3) {
+                        return (cb(err3));
+                    }
+                    fs.rmdir(f, cb);
+                });
+            });
+        } else {
+            fs.unlink(f, cb);
+        }
+    });
+}
+
 
 
 ///--- Exports
@@ -83,5 +114,6 @@ module.exports = {
 
     createLogger: createLogger,
     e: e,
-    entryStream: entryStream
+    entryStream: entryStream,
+    rmrf: rmrf
 };

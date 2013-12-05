@@ -15,7 +15,9 @@ var vasync = require('vasync');
 
 ///--- Globals
 
+var e = helper.e;
 var test = helper.test;
+var rmrf = helper.rmrf;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'leveldb_log-test',
@@ -27,15 +29,6 @@ var DB_FILE = TMP_DIR + '/leveldb_assumptions_test.db';
 
 
 ///--- Helpers
-
-function e(index, term) {
-    return ({
-        'index': index,
-        'term': term,
-        'command': index === 0 ? 'noop' : 'command-' + index + '-' + term
-    });
-}
-
 
 function le(x) {
     var b = new Buffer(4);
@@ -49,33 +42,6 @@ function dumpLog(db, cb) {
         .on('data', function (d) {
             //console.log(JSON.stringify(d, null, 0));
         }).on('close', cb);
-}
-
-
-function rmrf(f, cb) {
-    fs.stat(f, function (err, stats) {
-        if (err) {
-            return (cb(err));
-        }
-        if (stats.isDirectory()) {
-            fs.readdir(f, function (err2, files) {
-                if (err2) {
-                    return (cb(err2));
-                }
-                vasync.forEachPipeline({
-                    'func': rmrf,
-                    'inputs': files.map(function (x) { return (f + '/' + x); })
-                }, function (err3) {
-                    if (err3) {
-                        return (cb(err3));
-                    }
-                    fs.rmdir(f, cb);
-                });
-            });
-        } else {
-            fs.unlink(f, cb);
-        }
-    });
 }
 
 

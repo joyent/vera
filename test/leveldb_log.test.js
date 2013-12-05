@@ -34,10 +34,11 @@ var DB_FILE = TMP_DIR + '/leveldb_log_test.db';
 
 
 
-///--- Helpers
+///--- Setup/teardown
 
-function initLevelDbLog(opts, cb) {
+before(function (cb) {
     assert.func(cb, 'cb');
+    var self = this;
     var leveldbLog = null;
     vasync.pipeline({
         'arg': {},
@@ -73,34 +74,18 @@ function initLevelDbLog(opts, cb) {
             }
         ]
     }, function (err) {
-        if (err) {
-            console.error(err);
-            process.exit(1);
-        }
-        cb(err, leveldbLog);
-    });
-}
-
-
-///--- Setup/teardown
-
-var LLOG;
-before(function (cb) {
-    initLevelDbLog({}, function (err, levelDbLog) {
-        if (err) {
-            return (cb(err));
-        }
-        LLOG = levelDbLog;
-        cb();
+        self.levelDbLog = leveldbLog;
+        cb(err);
     });
 });
 
 
 after(function (cb) {
+    var self = this;
     vasync.pipeline({
         'funcs': [
             function (_, subcb) {
-                LLOG.close(subcb);
+                self.levelDbLog.close(subcb);
             }
         ]
     }, function (err) {
@@ -113,11 +98,12 @@ after(function (cb) {
 ///--- Tests
 
 test('test pass consistency check', function (t) {
+    var self = this;
     vasync.pipeline({
         'arg': {},
         'funcs': [
             function append(_, cb) {
-                LLOG.append({
+                self.levelDbLog.append({
                     'commitIndex': 0,
                     'term': 2,
                     'entries': entryStream([0, 0, 1, 0, 2, 1])
@@ -134,12 +120,13 @@ test('test pass consistency check', function (t) {
 
 
 test('test append one', function (t) {
+    var self = this;
     vasync.pipeline({
         'arg': {},
         'funcs': [
             function append(_, cb) {
                 var entry = { 'term': 2, 'command': 'frist psot!'};
-                LLOG.append({
+                self.levelDbLog.append({
                     'commitIndex': 0,
                     'term': 2,
                     'entries': memStream([ entry ])

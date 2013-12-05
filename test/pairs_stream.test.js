@@ -3,6 +3,7 @@
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var helper = require('./helper.js');
+var lib = require('../lib');
 var PairsStream = require('../lib/pairs_stream');
 var Readable = require('stream').Readable;
 var util = require('util');
@@ -12,6 +13,7 @@ var vasync = require('vasync');
 
 ///--- Globals
 
+var memStream = lib.memStream;
 var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
@@ -21,27 +23,8 @@ var LOG = bunyan.createLogger({
 var PAUSE_MILLIS = 5;
 
 
+
 ///--- Helpers
-
-function ns(a) {
-    var r = Readable({ objectMode: true });
-    r.ended = false;
-    r.i = 0;
-    r._read = function () {
-        if (r.ended) {
-            return;
-        }
-        if (r.i !== a.length) {
-            r.push(a[r.i++]);
-        }
-        if (r.i === a.length) {
-            r.ended = true;
-            r.push(null);
-        }
-    };
-    return (r);
-}
-
 
 function makeResult(pairs, left, right) {
     pairs = pairs || [];
@@ -77,8 +60,8 @@ function runFlowingTest(opts, cb) {
 
     var t = opts.t;
     var flowing = opts.flowing;
-    var left = ns(opts.left || []);
-    var right = ns(opts.right || []);
+    var left = memStream(opts.left || []);
+    var right = memStream(opts.right || []);
     var result = opts.result;
     var res = [];
 
@@ -115,137 +98,6 @@ function runTest(opts) {
         });
     });
 }
-
-
-
-///--- Tests for our internal ns class
-
-test('test ns flowing', function (t) {
-    var one = ns([1, 2, 3]);
-    var res = [];
-
-    one.on('data', function (d) {
-        res.push(d);
-    });
-
-    one.once('end', function () {
-        t.deepEqual([1, 2, 3], res);
-        t.done();
-    });
-});
-
-
-test('test ns non-flowing', function (t) {
-    var one = ns([1, 2, 3]);
-    var res = [];
-
-    one.on('readable', function () {
-        var d;
-        while (null !== (d = one.read())) {
-            res.push(d);
-        }
-    });
-
-    one.once('end', function () {
-        t.deepEqual([1, 2, 3], res);
-        t.done();
-    });
-});
-
-
-test('test ns end immediately flowing', function (t) {
-    var one = ns([]);
-    var res = [];
-
-    one.on('data', function (d) {
-        res.push(d);
-    });
-
-    one.once('end', function () {
-        t.deepEqual([], res);
-        t.done();
-    });
-});
-
-
-test('test ns end immediately non-flowing', function (t) {
-    var one = ns([]);
-    var res = [];
-
-    one.on('readable', function () {
-        var d;
-        while (null !== (d = one.read())) {
-            res.push(d);
-        }
-    });
-
-    one.once('end', function () {
-        t.deepEqual([], res);
-        t.done();
-    });
-});
-
-
-test('test ns stream after reading one, flowing', function (t) {
-    var one = ns([1, 2, 3, 4, 5]);
-    var res = [];
-    var firstOne = null;
-
-    function startReadAll() {
-        one.on('data', function (d) {
-            res.push(d);
-        });
-    }
-
-    function oneOnReadable() {
-        firstOne = one.read();
-        if (firstOne === null) {
-            one.once('readable', oneOnReadable);
-        } else {
-            startReadAll();
-        }
-    }
-
-    one.once('readable', oneOnReadable);
-    one.once('end', function () {
-        t.equal(1, firstOne);
-        t.deepEqual([2, 3, 4, 5], res);
-        t.done();
-    });
-});
-
-
-test('test ns stream after reading one, non-flowing', function (t) {
-    var one = ns([1, 2, 3, 4, 5]);
-    var res = [];
-    var firstOne = null;
-
-    function startReadAll() {
-        function restReadable() {
-            var d;
-            while (null !== (d = one.read())) {
-                res.push(d);
-            }
-        }
-        one.on('readable', restReadable);
-    }
-
-    function oneOnReadable() {
-        firstOne = one.read();
-        if (firstOne === null) {
-            one.once('readable', oneOnReadable);
-        } else {
-            startReadAll();
-        }
-    }
-
-    one.once('readable', oneOnReadable);
-    one.once('end', function () {
-        t.equal(1, firstOne);
-        t.deepEqual([2, 3, 4, 5], res);
-        t.done();
-    });
-});
 
 
 
@@ -316,8 +168,6 @@ test('one element in right, 2 in left', function (t) {
 });
 
 
-//test('right ends 1 before left', function (t) {
-//test('left ends 1 before right', function (t) {
 test('right ends 1 before left', function (t) {
     runTest({
         't': t,
@@ -355,8 +205,8 @@ test('left ends 2 before right', function (t) {
 
 
 test('read slow, non-flowing, left ends first', function (t) {
-    var left = ns([1, 2, 3, 4]);
-    var right = ns([1, 2, 3, 4, 5, 6, 7, 8]);
+    var left = memStream([1, 2, 3, 4]);
+    var right = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
     var res = [];
 
     var ps = new PairsStream({ 'left': left, 'right': right });
@@ -383,8 +233,8 @@ test('read slow, non-flowing, left ends first', function (t) {
 
 
 test('read slow, non-flowing, right ends first', function (t) {
-    var left = ns([1, 2, 3, 4, 5, 6, 7, 8]);
-    var right = ns([1, 2, 3, 4]);
+    var left = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var right = memStream([1, 2, 3, 4]);
     var res = [];
 
     var ps = new PairsStream({ 'left': left, 'right': right });
@@ -411,8 +261,8 @@ test('read slow, non-flowing, right ends first', function (t) {
 
 
 test('pause during pairs, flowing', function (t) {
-    var left = ns([1, 2, 3, 4, 5, 6, 7, 8]);
-    var right = ns([1, 2, 3, 4]);
+    var left = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var right = memStream([1, 2, 3, 4]);
     var res = [];
     var paused = false;
     var npaused = 0;
@@ -443,8 +293,8 @@ test('pause during pairs, flowing', function (t) {
 
 
 test('pause during left still going, flowing', function (t) {
-    var left = ns([1, 2, 3, 4, 5, 6, 7, 8]);
-    var right = ns([1, 2, 3, 4]);
+    var left = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var right = memStream([1, 2, 3, 4]);
     var res = [];
     var paused = false;
     var npaused = 0;
@@ -477,8 +327,8 @@ test('pause during left still going, flowing', function (t) {
 
 
 test('pause during right still going, flowing', function (t) {
-    var left = ns([1, 2, 3, 4]);
-    var right = ns([1, 2, 3, 4, 5, 6, 7, 8]);
+    var left = memStream([1, 2, 3, 4]);
+    var right = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
     var res = [];
     var paused = false;
     var npaused = 0;
@@ -511,8 +361,8 @@ test('pause during right still going, flowing', function (t) {
 
 
 test('stream after reading one', function (t) {
-    var left = ns([1, 2, 3, 4]);
-    var right = ns([1, 2, 3, 4, 5, 6, 7, 8]);
+    var left = memStream([1, 2, 3, 4]);
+    var right = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
     var res = [];
 
     var leftFirst = null;
@@ -564,8 +414,8 @@ test('stream after reading one', function (t) {
 
 
 test('stream after reading one, left end', function (t) {
-    var left = ns([1]);
-    var right = ns([1, 2]);
+    var left = memStream([1]);
+    var right = memStream([1, 2]);
     var res = [];
 
     var leftFirst = null;
@@ -616,8 +466,8 @@ test('stream after reading one, left end', function (t) {
 
 
 test('stream after reading one, right end', function (t) {
-    var left = ns([1, 2]);
-    var right = ns([1]);
+    var left = memStream([1, 2]);
+    var right = memStream([1]);
     var res = [];
 
     var leftFirst = null;

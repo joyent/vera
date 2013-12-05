@@ -11,6 +11,7 @@ var vasync = require('vasync');
 
 ///--- Globals
 
+var before = helper.before;
 var e = helper.e;
 var entryStream = helper.entryStream;
 var memStream = lib.memStream;
@@ -26,75 +27,6 @@ var LOW_LEADER_TIMEOUT = 2;
 
 ///--- Helpers
 
-function initRaft(opts) {
-    opts = opts || {};
-    assert.object(opts, 'opts');
-
-    opts.log = opts.log || LOG;
-    opts.id = opts.id || 'raft-0';
-    opts.peers = opts.peers || [ 'raft-1', 'raft-2' ];
-
-    //Need to "naturally" add some log entries, commit to state machines, etc.
-    return (function (_, cb) {
-        var raft;
-        vasync.pipeline({
-            funcs: [
-                function init(o, subcb) {
-                    memraft.raft(opts, function (err, r) {
-                        if (err) {
-                            return (subcb(err));
-                        }
-                        raft = r;
-                        return (subcb(null));
-                    });
-                },
-                function addEntries(o, subcb) {
-                    raft.appendEntries({
-                        'operation': 'appendEntries',
-                        'term': 3,
-                        'leaderId': 'raft-1',
-                        'entries': memStream([
-                            e(0, 0, 'noop'),
-                            e(1, 1, 'one'),
-                            e(2, 2, 'two'),
-                            e(3, 3, 'three')
-                        ]),
-                        'commitIndex': 2
-                    }, subcb);
-                },
-                function requestVote(o, subcb) {
-                    raft.requestVote({
-                        'operation': 'requestVote',
-                        'candidateId': 'raft-1',
-                        'term': 3,
-                        'lastLogTerm': 3,
-                        'lastLogIndex': 3
-                    }, subcb);
-                },
-                //To get the leader set.
-                function assertLeader(o, subcb) {
-                    raft.appendEntries({
-                        'operation': 'appendEntries',
-                        'term': 3,
-                        'leaderId': 'raft-1',
-                        'entries': memStream([
-                            e(3, 3, 'three')
-                        ]),
-                        'commitIndex': 2
-                    }, subcb);
-                }
-            ]
-        }, function (err) {
-            _.raft = raft;
-            //Set the leaderTimout low...
-            raft.leaderTimeout = LOW_LEADER_TIMEOUT;
-            raft.messageBus.blackholeUnknown = true;
-            return (cb(err, raft));
-        });
-    });
-}
-
-
 //See lib/raft.js#sendAppendEntries
 function ae(req) {
     req.operation = req.operation || 'appendEntries';
@@ -107,9 +39,80 @@ function ae(req) {
 
 
 
+///--- Setup/Teardown
+
+before(function (cb) {
+    var self = this;
+
+    var opts = {
+        'log': LOG,
+        'id': 'raft-0',
+        'peers': [ 'raft-1', 'raft-2' ]
+    };
+
+    //Need to "naturally" add some log entries, commit to state machines, etc.
+    var raft;
+    vasync.pipeline({
+        funcs: [
+            function init(o, subcb) {
+                memraft.raft(opts, function (err, r) {
+                    if (err) {
+                        return (subcb(err));
+                    }
+                    raft = r;
+                    return (subcb(null));
+                });
+            },
+            function addEntries(o, subcb) {
+                raft.appendEntries({
+                    'operation': 'appendEntries',
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'entries': memStream([
+                        e(0, 0, 'noop'),
+                        e(1, 1, 'one'),
+                        e(2, 2, 'two'),
+                        e(3, 3, 'three')
+                    ]),
+                    'commitIndex': 2
+                }, subcb);
+            },
+            function requestVote(o, subcb) {
+                raft.requestVote({
+                    'operation': 'requestVote',
+                    'candidateId': 'raft-1',
+                    'term': 3,
+                    'lastLogTerm': 3,
+                    'lastLogIndex': 3
+                }, subcb);
+            },
+            //To get the leader set.
+            function assertLeader(o, subcb) {
+                raft.appendEntries({
+                    'operation': 'appendEntries',
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'entries': memStream([
+                        e(3, 3, 'three')
+                    ]),
+                    'commitIndex': 2
+                }, subcb);
+            }
+        ]
+    }, function (err) {
+        self.raft = raft;
+        //Set the leaderTimout low...
+        raft.leaderTimeout = LOW_LEADER_TIMEOUT;
+        raft.messageBus.blackholeUnknown = true;
+        return (cb(err));
+    });
+});
+
+
 ///--- Tests
 
 test('initial heartbeat (empty append, empty follower)', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
@@ -123,13 +126,13 @@ test('initial heartbeat (empty append, empty follower)', function (t) {
                     if (err) {
                         return (subcb(err));
                     }
-                    _.raft = r;
+                    self.raft = r;
                     r.leaderTimeout = LOW_LEADER_TIMEOUT;
                     return (subcb(null));
                 });
             },
             function checkInitial(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal(0, r.currentTerm());
                 t.ok(r.leaderTimeout === LOW_LEADER_TIMEOUT);
                 t.equal(undefined, r.leaderId);
@@ -141,7 +144,7 @@ test('initial heartbeat (empty append, empty follower)', function (t) {
                 subcb();
             },
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({}), function (err, res) {
                     t.ok(res);
                     t.equal(0, res.term);
@@ -169,6 +172,7 @@ test('initial heartbeat (empty append, empty follower)', function (t) {
 
 
 test('first append, first commit', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
@@ -182,13 +186,13 @@ test('first append, first commit', function (t) {
                     if (err) {
                         return (subcb(err));
                     }
-                    _.raft = r;
+                    self.raft = r;
                     r.leaderTimeout = LOW_LEADER_TIMEOUT;
                     return (subcb(null));
                 });
             },
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'entries': entryStream([ 0, 0, 1, 0 ])
                 }), function (err, res) {
@@ -209,7 +213,7 @@ test('first append, first commit', function (t) {
                 });
             },
             function commit(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'commitIndex': 1,
                     'entries': entryStream([ 0, 0, 1, 0 ])
@@ -241,12 +245,12 @@ test('first append, first commit', function (t) {
 
 
 test('state after test init and log[0] heartbeat', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function checkInitial(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal(3, r.currentTerm());
                 t.ok(r.leaderTimeout === LOW_LEADER_TIMEOUT);
                 t.equal('raft-1', r.leaderId);
@@ -258,7 +262,7 @@ test('state after test init and log[0] heartbeat', function (t) {
                 subcb();
             },
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1'
@@ -289,12 +293,12 @@ test('state after test init and log[0] heartbeat', function (t) {
 
 
 test('term out of date', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 2,
                     'leaderId': 'raft-1'
@@ -328,12 +332,12 @@ test('term out of date', function (t) {
 
 
 test('new term, new leader', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 4,
                     'leaderId': 'raft-2'
@@ -364,12 +368,12 @@ test('new term, new leader', function (t) {
 
 
 test('idempotent append at end', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -382,7 +386,7 @@ test('idempotent append at end', function (t) {
                     return (subcb(err));
                 });
             }, function appendAgain(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -415,12 +419,12 @@ test('idempotent append at end', function (t) {
 
 
 test('cause truncation', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal('command-3-3', r.clog.clog[3].command);
                 r.appendEntries(ae({
                     'term': 3,
@@ -455,12 +459,12 @@ test('cause truncation', function (t) {
 
 
 test('log term past request term', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -496,12 +500,12 @@ test('log term past request term', function (t) {
 
 
 test('consistency fail with term mismatch', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -537,12 +541,12 @@ test('consistency fail with term mismatch', function (t) {
 
 
 test('consistency fail with index too far ahead', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -578,12 +582,12 @@ test('consistency fail with index too far ahead', function (t) {
 
 
 test('leader mismatch (a very bad thing)', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-2',
@@ -619,12 +623,12 @@ test('leader mismatch (a very bad thing)', function (t) {
 
 
 test('two successful appends', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -637,7 +641,7 @@ test('two successful appends', function (t) {
                     return (subcb(err));
                 });
             }, function appendAgain(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -675,12 +679,12 @@ test('two successful appends', function (t) {
 
 
 test('previously voted in term, update term with append', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 4,
                     'leaderId': 'raft-2',
@@ -718,12 +722,12 @@ test('previously voted in term, update term with append', function (t) {
 
 
 test('only commit index update (like a heartbeat)', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -756,12 +760,12 @@ test('only commit index update (like a heartbeat)', function (t) {
 
 
 test('leader step down', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function becomeLeader(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.once('stateChange', function (state) {
                     r.transitionToLeader();
                     return (subcb());
@@ -769,7 +773,7 @@ test('leader step down', function (t) {
                 r.transitionToCandidate();
             },
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal('leader', r.state);
                 r.appendEntries(ae({
                     'term': 5,
@@ -803,12 +807,12 @@ test('leader step down', function (t) {
 
 
 test('some other leader tries append', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function becomeLeader(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.once('stateChange', function (state) {
                     r.transitionToLeader();
                     return (subcb());
@@ -816,7 +820,7 @@ test('some other leader tries append', function (t) {
                 r.transitionToCandidate();
             },
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal('leader', r.state);
                 r.appendEntries(ae({
                     'term': 4,
@@ -853,19 +857,19 @@ test('some other leader tries append', function (t) {
 
 
 test('candidate step down, same term', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function becomeCandidate(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.once('stateChange', function (state) {
                     return (subcb());
                 });
                 r.transitionToCandidate();
             },
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal('candidate', r.state);
                 r.appendEntries(ae({
                     'term': 4,
@@ -900,19 +904,19 @@ test('candidate step down, same term', function (t) {
 
 
 test('candidate step down, future term', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function becomeCandidate(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.once('stateChange', function (state) {
                     subcb();
                 });
                 r.transitionToCandidate();
             },
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal('candidate', r.state);
                 r.appendEntries(ae({
                     'term': 5,
@@ -947,12 +951,12 @@ test('candidate step down, future term', function (t) {
 
 
 test('append one, beginning', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -985,12 +989,12 @@ test('append one, beginning', function (t) {
 
 
 test('append one, middle', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1023,12 +1027,12 @@ test('append one, middle', function (t) {
 
 
 test('append one, end', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1063,12 +1067,12 @@ test('append one, end', function (t) {
 
 //This is getting kinda pedantic...
 test('append many, beginning', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1101,12 +1105,12 @@ test('append many, beginning', function (t) {
 
 
 test('append many, middle', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1139,12 +1143,12 @@ test('append many, middle', function (t) {
 
 
 test('append many, end', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1179,12 +1183,12 @@ test('append many, end', function (t) {
 
 
 test('entries out of order', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1220,12 +1224,12 @@ test('entries out of order', function (t) {
 
 
 test('terms not strictly increasing', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1263,12 +1267,12 @@ test('terms not strictly increasing', function (t) {
 //I don't see a problem with just not doing anything with a commit index that's
 // less than the current commit index.  So, success should be fine here.
 test('negative commit index', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1301,12 +1305,12 @@ test('negative commit index', function (t) {
 
 
 test('commit index in past', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1339,12 +1343,12 @@ test('commit index in past', function (t) {
 
 
 test('commit index in future', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1380,12 +1384,12 @@ test('commit index in future', function (t) {
 // append entries, and a follower is too far behind the leader. See the
 // docs for reasons behind impl.
 test('commit index too far in future', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1421,12 +1425,12 @@ test('commit index too far in future', function (t) {
 
 
 test('commit index is in list of updates', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1459,12 +1463,12 @@ test('commit index is in list of updates', function (t) {
 
 
 test('commit index is end of updates', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1499,12 +1503,12 @@ test('commit index is end of updates', function (t) {
 //Just like in the request votes test, *nothing* in node is concurrent, but
 // nextTicking 2 functions is as close as it is going to get.
 test('concurrent appends, same terms', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
 
                 var responses = 0;
                 function tryEnd() {
@@ -1543,7 +1547,7 @@ test('concurrent appends, same terms', function (t) {
                 });
             },
             function checkRaft(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal(3, r.currentTerm());
                 t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
                 t.equal('raft-1', r.leaderId);
@@ -1565,12 +1569,12 @@ test('concurrent appends, same terms', function (t) {
 
 
 test('concurrent appends, same future terms', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
 
                 var responses = 0;
                 function tryEnd() {
@@ -1609,7 +1613,7 @@ test('concurrent appends, same future terms', function (t) {
                 });
             },
             function checkRaft(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal(4, r.currentTerm());
                 t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
                 t.equal('raft-2', r.leaderId);
@@ -1631,12 +1635,12 @@ test('concurrent appends, same future terms', function (t) {
 
 
 test('concurrent appends, first future term', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
 
                 var responses = 0;
                 function tryEnd() {
@@ -1679,7 +1683,7 @@ test('concurrent appends, first future term', function (t) {
                 });
             },
             function checkRaft(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal(5, r.currentTerm());
                 t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
                 t.equal('raft-2', r.leaderId);
@@ -1701,12 +1705,12 @@ test('concurrent appends, first future term', function (t) {
 
 
 test('concurrent appends, second future term', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
 
                 var responses = 0;
                 function tryEnd() {
@@ -1745,7 +1749,7 @@ test('concurrent appends, second future term', function (t) {
                 });
             },
             function checkRaft(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 t.equal(5, r.currentTerm());
                 t.ok(r.leaderTimeout !== LOW_LEADER_TIMEOUT);
                 t.equal('raft-2', r.leaderId);
@@ -1768,12 +1772,12 @@ test('concurrent appends, second future term', function (t) {
 
 //I don't see any reason not to just let the consistancy check catch this.
 test('index goes before first entry (index of -1)', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1809,12 +1813,12 @@ test('index goes before first entry (index of -1)', function (t) {
 
 
 test('leader not known in peers', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 4,
                     'leaderId': 'raft-13',
@@ -1850,12 +1854,12 @@ test('leader not known in peers', function (t) {
 
 
 test('attempt to truncate below commit index', function (t) {
+    var self = this;
     vasync.pipeline({
         arg: {},
         funcs: [
-            initRaft(),
             function append(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 3,
                     'leaderId': 'raft-1',
@@ -1869,7 +1873,7 @@ test('attempt to truncate below commit index', function (t) {
                 });
             },
             function attemptTruncate(_, subcb) {
-                var r = _.raft;
+                var r = self.raft;
                 r.appendEntries(ae({
                     'term': 4,
                     'leaderId': 'raft-2',
