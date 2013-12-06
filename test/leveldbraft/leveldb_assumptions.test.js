@@ -6,7 +6,7 @@
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var fs = require('fs');
-var helper = require('./helper.js');
+var helper = require('../helper.js');
 var levelup = require('level');
 var path = require('path');
 var vasync = require('vasync');
@@ -137,6 +137,25 @@ test('test assumptions', function (t) {
 
                 rs.on('close', function () {
                     t.deepEqual([], res);
+                    cb();
+                });
+            },
+            function iterStartEndEqual(_, cb) {
+                var rs = db.createReadStream({
+                    'start': le(2),
+                    'end': le(2)
+                });
+                var res = [];
+
+                rs.on('readable', function () {
+                    var d;
+                    while (null !== (d = rs.read())) {
+                        res.push(d.value.index);
+                    }
+                });
+
+                rs.on('close', function () {
+                    t.deepEqual([ 2 ], res);
                     cb();
                 });
             },

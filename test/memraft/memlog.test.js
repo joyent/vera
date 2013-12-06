@@ -15,7 +15,6 @@ var commandLogTests = require('../share/command_log_tests.js');
 ///--- Globals
 
 var before = helper.before;
-var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'memlog-test',

@@ -187,7 +187,8 @@ MemLog.prototype.append = function (opts, cb) {
 };
 
 
-//Same function signature as Javascript's array.slice.
+//Same function signature as Javascript's array.slice except we don't like
+// negative numbers.
 MemLog.prototype.slice = function (start, end, cb) {
     assert.number(start, 'index');
     if ((typeof (end)) === 'function') {
@@ -200,6 +201,9 @@ MemLog.prototype.slice = function (start, end, cb) {
     if (!self.ready) {
         return (process.nextTick(cb.bind(
             null, new error.InternalError('I wasn\'t ready yet.'))));
+    }
+    if (end < start) {
+        end = start;
     }
     return (process.nextTick(
         cb.bind(null, null, lib.memStream(self.clog.slice(start, end)))));
