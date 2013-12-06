@@ -515,3 +515,60 @@ test('stream after reading one, right end', function (t) {
     left.once('readable', leftOnReadable);
     right.once('readable', rightOnReadable);
 });
+
+
+test('left ends while waiting for right readable', function (t) {
+    /**
+     * Need a very specific set of events:
+     * 1) left is read
+     * 2) right reads null (not ready or ended yet)
+     * 3) left ends
+     * 4) right ends
+     */
+    var right = Readable({ 'objectMode': true });
+    var rightPushed = false;
+    right._read = function () {
+        var self = this;
+        if (!rightPushed) {
+            self.push(1);
+            rightPushed = true;
+        }
+        // 2) right reads null
+    };
+
+    var left = Readable({ 'objectMode': true });
+    var leftPushed = false;
+    left._read = function () {
+        var self = this;
+        if (leftPushed) {
+            return;
+        }
+        self.push(1);
+        // 1) left is read
+        self.push(2);
+        setTimeout(function () {
+            // 3) left ends
+            self.push(null);
+            setTimeout(function () {
+                //4) right ends
+                right.push(null);
+            }, 100);
+        }, 100);
+        leftPushed = true;
+    };
+
+    var ps = new PairsStream({ 'left': left, 'right': right });
+    var res = [];
+
+    ps.on('data', function (d) {
+        res.push(d);
+    });
+
+    ps.on('end', function () {
+        t.ok(ps.leftEnded);
+        t.ok(ps.rightEnded);
+        t.deepEqual(makeResult([ 1, 1 ], [ 2 ]), res);
+        t.done();
+    });
+
+});

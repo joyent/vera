@@ -527,9 +527,7 @@ test('truncate at commit index', function (t) {
 });
 
 
-//TODO: This test is failing....
-function test2() {}
-test2('cause replace end, add one', function (t) {
+test('cause replace end, add one', function (t) {
     var self = this;
     var funcs = [
         function (_, subcb) {
