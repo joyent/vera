@@ -1,13 +1,13 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var helper = require('./helper.js');
-var lib = require('../lib');
-var memraft = require('./memraft');
+var helper = require('../helper.js');
+var lib = require('../../lib');
+var memraft = require('../memraft');
 var vasync = require('vasync');
 
 // All the actual tests are here...
-var raftRequestVoteTests = require('./share/raft_requestvote_tests.js');
+var raftRequestVoteTests = require('../share/raft_requestvote_tests.js');
 
 
 

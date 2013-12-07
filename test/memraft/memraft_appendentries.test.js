@@ -2,13 +2,13 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var helper = require('./helper.js');
-var lib = require('../lib');
-var memraft = require('./memraft');
+var helper = require('../helper.js');
+var lib = require('../../lib');
+var memraft = require('../memraft');
 var vasync = require('vasync');
 
 // All the actual tests are here...
-var raftAppendEntriesTests = require('./share/raft_appendentries_tests.js');
+var raftAppendEntriesTests = require('../share/raft_appendentries_tests.js');
 
 ///--- Globals
 
