@@ -546,18 +546,34 @@ test('left ends while waiting for right readable', function (t) {
         self.push(1);
         // 1) left is read
         self.push(2);
-        setTimeout(function () {
-            // 3) left ends
-            self.push(null);
-            setTimeout(function () {
+        function onWaitingForReadable() {
+            t.ok(self.ps.waitingForReadable);
+            t.ok(!self.ps.leftEnded);
+            t.ok(!self.ps.rightEnded);
+            self.once('end', function () {
+                t.ok(self.ps.waitingForReadable);
+                t.ok(self.ps.leftEnded);
+                t.ok(!self.ps.rightEnded);
                 //4) right ends
                 right.push(null);
-            }, 100);
-        }, 100);
+            });
+            // 3) left ends
+            self.push(null);
+        }
+        process.nextTick(function () {
+            //ps should have been set by the next tick.
+            t.ok(self.ps);
+            if (!self.ps.waitingForReadable) {
+                self.ps.on('waitingForReadable', onWaitingForReadable);
+            } else {
+                onWaitingForReadable();
+            }
+        });
         leftPushed = true;
     };
 
     var ps = new PairsStream({ 'left': left, 'right': right });
+    left.ps = ps;
     var res = [];
 
     ps.on('data', function (d) {
