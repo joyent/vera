@@ -24,7 +24,7 @@ var LOG = bunyan.createLogger({
     name: 'leveldb_log-test',
     stream: process.stdout
 });
-var TMP_DIR = path.dirname(__dirname) + '/tmp';
+var TMP_DIR = path.resolve(path.dirname(__dirname), '..') + '/tmp';
 var DB_FILE = TMP_DIR + '/leveldb_log_test.db';
 
 

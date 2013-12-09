@@ -143,10 +143,10 @@ module.exports = {
         };
     },
 
-    createLogger: createLogger,
-    e: e,
-    entryStream: entryStream,
-    readClog: readClog,
-    readStream: readStream,
-    rmrf: rmrf
+    'createLogger': createLogger,
+    'e': e,
+    'entryStream': entryStream,
+    'readClog': readClog,
+    'readStream': readStream,
+    'rmrf': rmrf
 };
