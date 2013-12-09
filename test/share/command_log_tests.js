@@ -11,34 +11,10 @@ var vasync = require('vasync');
 var e = helper.e;
 var entryStream = helper.entryStream;
 var memStream = lib.memStream;
+var readClog = helper.readClog;
+var readStream = helper.readStream;
 var test = helper.test;
 
-
-
-///--- Helpers
-
-function readStream(s, cb) {
-    var res = [];
-    s.on('readable', function () {
-        var d;
-        while (null !== (d = s.read())) {
-            res.push(d);
-        }
-    });
-    s.once('end', function () {
-        return (cb(null, res));
-    });
-}
-
-
-function readTheDb(clog, cb) {
-    clog.slice(0, function (err, entries) {
-        if (err) {
-            return (cb(err));
-        }
-        readStream(entries, cb);
-    });
-}
 
 
 ///--- Tests
@@ -56,7 +32,7 @@ test('consistency check on 0, success', function (t) {
         function (_, subcb) {
             t.equal(1, self.clog.nextIndex);
             t.deepEqual(e(0, 0), self.clog.last());
-            readTheDb(self.clog, function (err, clog) {
+            readClog(self.clog, function (err, clog) {
                 t.ok(clog.length === 1);
                 t.deepEqual(e(0, 0), clog[0]);
                 subcb();
@@ -136,7 +112,7 @@ test('append one at a time', function (t) {
         function (_, subcb) {
             t.equal(3, self.clog.nextIndex);
             t.deepEqual(e(2, 2), self.clog.last());
-            readTheDb(self.clog, function (err, clog) {
+            readClog(self.clog, function (err, clog) {
                 t.ok(clog.length === 3);
                 t.deepEqual(e(0, 0), clog[0]);
                 t.deepEqual(e(1, 2), clog[1]);
@@ -174,7 +150,7 @@ test('add two success', function (t) {
         function (_, subcb) {
             t.equal(3, self.clog.nextIndex);
             t.deepEqual(e(2, 1), self.clog.last());
-            readTheDb(self.clog, function (err, clog) {
+            readClog(self.clog, function (err, clog) {
                 t.ok(clog.length === 3);
                 t.deepEqual(e(0, 0), clog[0]);
                 t.deepEqual(e(1, 1), clog[1]);
@@ -299,7 +275,7 @@ test('idempotent, two in the middle.', function (t) {
         function (_, subcb) {
             t.equal(4, self.clog.nextIndex);
             t.deepEqual(e(3, 0), self.clog.last());
-            readTheDb(self.clog, function (err, clog) {
+            readClog(self.clog, function (err, clog) {
                 t.ok(clog.length === 4);
                 t.deepEqual(e(0, 0), clog[0]);
                 t.deepEqual(e(1, 0), clog[1]);
@@ -349,7 +325,7 @@ test('cause truncate from beginning', function (t) {
         function (_, subcb) {
             t.equal(2, self.clog.nextIndex);
             t.deepEqual(e(1, 1), self.clog.last());
-            readTheDb(self.clog, function (err, clog) {
+            readClog(self.clog, function (err, clog) {
                 t.ok(clog.length === 2);
                 t.deepEqual(e(0, 0), clog[0]);
                 t.deepEqual(e(1, 1), clog[1]);
@@ -399,7 +375,7 @@ test('cause truncate in middle', function (t) {
         function (_, subcb) {
             t.equal(4, self.clog.nextIndex);
             t.deepEqual(e(3, 1), self.clog.last());
-            readTheDb(self.clog, function (err, clog) {
+            readClog(self.clog, function (err, clog) {
                 t.equal(4, clog.length);
                 t.deepEqual(e(0, 0), clog[0]);
                 t.deepEqual(e(1, 0), clog[1]);
@@ -555,7 +531,7 @@ test('cause replace end, add one', function (t) {
         function (_, subcb) {
             t.equal(4, self.clog.nextIndex);
             t.deepEqual(e(3, 3), self.clog.last());
-            readTheDb(self.clog, function (err, clog) {
+            readClog(self.clog, function (err, clog) {
                 t.ok(clog.length === 4);
                 t.deepEqual(e(0, 0), clog[0]);
                 t.deepEqual(e(1, 0), clog[1]);
@@ -591,7 +567,7 @@ test('add first, term > 0', function (t) {
         function (_, subcb) {
             t.equal(2, self.clog.nextIndex);
             t.deepEqual(e(1, 5), self.clog.last());
-            readTheDb(self.clog, function (err, clog) {
+            readClog(self.clog, function (err, clog) {
                 t.ok(clog.length === 2);
                 t.deepEqual(e(0, 0), clog[0]);
                 t.deepEqual(e(1, 5), clog[1]);

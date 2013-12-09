@@ -41,8 +41,39 @@ function entryStream(a) {
 }
 
 
+function readStream(s, cb) {
+    var res = [];
+    s.on('readable', function () {
+        var d;
+        while (null !== (d = s.read())) {
+            res.push(d);
+        }
+    });
+    s.on('error', function (err) {
+        s.removeAllListeners();
+        cb(err);
+    });
+    s.on('end', function () {
+        cb(null, res);
+    });
+}
+
+
+function readClog(clog, cb) {
+    clog.slice(0, function (err, es) {
+        if (err) {
+            return (cb(err));
+        }
+        readStream(es, cb);
+    });
+}
+
+
 function rmrf(f, cb) {
     fs.stat(f, function (err, stats) {
+        if (err && err.code === 'ENOENT') {
+            return (process.nextTick(cb));
+        }
         if (err) {
             return (cb(err));
         }
@@ -115,5 +146,7 @@ module.exports = {
     createLogger: createLogger,
     e: e,
     entryStream: entryStream,
+    readClog: readClog,
+    readStream: readStream,
     rmrf: rmrf
 };

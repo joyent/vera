@@ -5,13 +5,19 @@ var bunyan = require('bunyan');
 var fs = require('fs');
 var helper = require('../helper.js');
 var LevelDbLog = require('../../lib/leveldb_log');
+//TODO: Should be persisted.
+var MemProps = require('../memraft/memprops');
+var lib = require('../../lib');
+//TODO: Move the message bus out somewhere?
+var MessageBus = require('../memraft/messagebus');
 var path = require('path');
+var Raft = require('../../lib/raft');
+//TODO: Should be persisted.
 var StateMachine = require('../memraft/statemachine');
-var stream = require('stream');
 var vasync = require('vasync');
 
 // All the actual tests are here...
-var commandLogTests = require('../share/command_log_tests.js');
+var raftInitTests = require('../share/raft_init_tests.js');
 
 
 
@@ -21,16 +27,18 @@ var after = helper.after;
 var before = helper.before;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
-    name: 'leveldb_log-test',
+    name: 'raft-test',
     stream: process.stdout
 });
+var LOW_LEADER_TIMEOUT = 2;
 var TMP_DIR = path.dirname(__dirname) + '/tmp';
-var DB_FILE = TMP_DIR + '/leveldb_log_test.db';
+var DB_FILE = TMP_DIR + '/leveldbraft_init_test.db';
 
 
 
-///--- Setup/teardown
+///--- Setup/Teardown
 
+//TODO: Need to factor this out.
 before(function (cb) {
     assert.func(cb, 'cb');
     var self = this;
@@ -43,6 +51,10 @@ before(function (cb) {
                     }
                     return (subcb());
                 });
+            },
+            function initMessageBus(_, subcb) {
+                self.messageBus = new MessageBus({ 'log': LOG });
+                self.messageBus.on('ready', subcb);
             },
             function initStateMachine(_, subcb) {
                 self.stateMachine = new StateMachine({ 'log': LOG });
@@ -59,6 +71,28 @@ before(function (cb) {
                 });
                 self.clog.on('ready', subcb);
                 self.clog.on('error', subcb);
+            },
+            function initMemProps(_, subcb) {
+                self.properties = new MemProps({
+                    'log': LOG,
+                    'props': {
+                        'currentTerm': 0
+                    }
+                });
+                self.properties.on('ready', subcb);
+            },
+            function initRaft(_, subcb) {
+                self.raft = new Raft({
+                    'log': LOG,
+                    'id': 'raft-0',
+                    'peers': [ 'raft-1', 'raft-2' ],
+                    'clog': self.clog,
+                    'stateMachine': self.stateMachine,
+                    'messageBus': self.messageBus,
+                    'properties': self.properties
+                });
+                self.raft.leaderTimeout = LOW_LEADER_TIMEOUT;
+                subcb();
             }
         ]
     }, function (err) {
@@ -74,7 +108,7 @@ after(function (cb) {
             function closeLevelDb(_, subcb) {
                 self.clog.close(subcb);
             }
-        ]
+                    ]
     }, function (err) {
         cb(err);
     });

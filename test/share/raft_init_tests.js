@@ -37,15 +37,18 @@ test('initial heartbeat (empty append, empty follower)', function (t) {
         funcs: [
             function checkInitial(_, subcb) {
                 var r = self.raft;
+                t.ok(self.raft);
                 t.equal(LOW_LEADER_TIMEOUT, r.leaderTimeout);
                 t.equal(0, r.currentTerm());
                 t.equal(undefined, r.leaderId);
                 t.equal('follower', r.state);
                 t.equal(1, r.clog.nextIndex);
-                t.equal(1, r.clog.clog.length);
                 t.equal(0, r.stateMachine.commitIndex);
                 t.equal(undefined, r.stateMachine.data);
-                subcb();
+                helper.readClog(r.clog, function (err, entries) {
+                    t.equal(1, entries.length);
+                    subcb();
+                });
             },
             function append(_, subcb) {
                 var r = self.raft;
@@ -59,10 +62,12 @@ test('initial heartbeat (empty append, empty follower)', function (t) {
                     t.equal('raft-1', r.leaderId);
                     t.equal('follower', r.state);
                     t.equal(1, r.clog.nextIndex);
-                    t.equal(1, r.clog.clog.length);
                     t.equal(0, r.stateMachine.commitIndex);
                     t.equal(undefined, r.stateMachine.data);
-                    return (subcb(err));
+                    helper.readClog(r.clog, function (err2, entries) {
+                        t.equal(1, entries.length);
+                        subcb();
+                    });
                 });
             }
         ]
@@ -95,11 +100,13 @@ test('first append, first commit', function (t) {
                     t.equal('raft-1', r.leaderId);
                     t.equal('follower', r.state);
                     t.equal(2, r.clog.nextIndex);
-                    t.equal(2, r.clog.clog.length);
-                    t.equal('command-1-0', r.clog.clog[1].command);
                     t.equal(0, r.stateMachine.commitIndex);
                     t.equal(undefined, r.stateMachine.data);
-                    return (subcb(err));
+                    helper.readClog(r.clog, function (err2, entries) {
+                        t.equal(2, entries.length);
+                        t.equal('command-1-0', entries[1].command);
+                        subcb();
+                    });
                 });
             },
             function commit(_, subcb) {
@@ -117,11 +124,13 @@ test('first append, first commit', function (t) {
                     t.equal('raft-1', r.leaderId);
                     t.equal('follower', r.state);
                     t.equal(2, r.clog.nextIndex);
-                    t.equal(2, r.clog.clog.length);
-                    t.equal('command-1-0', r.clog.clog[1].command);
                     t.equal(1, r.stateMachine.commitIndex);
                     t.equal('command-1-0', r.stateMachine.data);
-                    return (subcb(err));
+                    helper.readClog(r.clog, function (err2, entries) {
+                        t.equal(2, entries.length);
+                        t.equal('command-1-0', entries[1].command);
+                        subcb();
+                    });
                 });
             }
         ]
