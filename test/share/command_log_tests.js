@@ -707,7 +707,7 @@ test('append past end', function (t) {
 });
 
 
-test('term later than last entry', function (t) {
+test('entry term later than last entry', function (t) {
     var self = this;
     var funcs = [
         function (_, subcb) {

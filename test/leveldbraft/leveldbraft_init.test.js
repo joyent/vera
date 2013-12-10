@@ -4,7 +4,7 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var fs = require('fs');
 var helper = require('../helper.js');
-var lib = require('../leveldbraft');
+var leveldbraft = require('../leveldbraft');
 var vasync = require('vasync');
 
 
@@ -32,7 +32,7 @@ var LOW_LEADER_TIMEOUT = 2;
 before(function (cb) {
     assert.func(cb, 'cb');
     var self = this;
-    lib.raft({
+    leveldbraft.raft({
         'log': LOG,
         'id': 'raft-0',
         'peers': [ 'raft-1', 'raft-2' ],

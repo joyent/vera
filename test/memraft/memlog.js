@@ -127,11 +127,6 @@ MemLog.prototype.append = function (opts, cb) {
 
         //Sanity checks...
         var lastEntry = entries[entries.length - 1];
-        if (commitIndex > lastEntry.index) {
-            return (cb(new error.InvalidIndexError(sprintf(
-                'commit index %d is ahead of the last log entry ' +
-                    'index %d', commitIndex, lastEntry.index))));
-        }
 
         //Since we make sure terms are strictly increasing below, we only need
         // to check here that the last term isn't greater than the request term.
@@ -182,6 +177,15 @@ MemLog.prototype.append = function (opts, cb) {
         }
 
         self.nextIndex = self.clog.length;
+
+        //We do this after we apply only because in a streams world we can't
+        // know what the last entry is until we read it.
+        if (commitIndex > lastEntry.index) {
+            return (cb(new error.InvalidIndexError(sprintf(
+                'commit index %d is ahead of the last log entry ' +
+                    'index %d', commitIndex, lastEntry.index))));
+        }
+
         return (cb());
     });
 };
