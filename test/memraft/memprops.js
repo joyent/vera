@@ -5,6 +5,8 @@ var events = require('events');
 var error = require('../../lib/error');
 var util = require('util');
 
+
+
 /**
  * Keeps a set of properties in memory, meant to look like the interface for the
  * same thing that persists to disk.
@@ -53,7 +55,6 @@ MemProps.prototype.write = function (props, cb) {
 };
 
 
-//Same function signature as Javascript's array.slice.
 MemProps.prototype.get = function (key) {
     assert.string(key, 'key');
     var self = this;
