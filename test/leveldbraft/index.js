@@ -3,7 +3,7 @@
 var assert = require('assert-plus');
 var fs = require('fs');
 var helper = require('../helper.js');
-var LevelDbLog = require('../../lib/leveldb_log');
+var LevelDbLog = require('../../lib/leveldb/log');
 //TODO: Should be persisted.
 var MemProps = require('../memraft/memprops');
 //TODO: Move the message bus out somewhere?
