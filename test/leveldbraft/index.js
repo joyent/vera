@@ -10,8 +10,7 @@ var LevelDbProperties = require('../../lib/leveldb/properties');
 var MessageBus = require('../memraft/messagebus');
 var path = require('path');
 var Raft = require('../../lib/raft');
-//TODO: Should be persisted.
-var StateMachine = require('../memraft/statemachine');
+var StateMachine = require('./statemachine');
 var vasync = require('vasync');
 
 
@@ -73,7 +72,10 @@ function raft(opts, cb) {
                 }
             },
             function initStateMachine(_, subcb) {
-                _.stateMachine = new StateMachine({ 'log': log });
+                _.stateMachine = new StateMachine({
+                    'log': log,
+                    'db': _.db
+                });
                 _.stateMachine.on('ready', subcb);
             },
             function initCommandLog(_, subcb) {
