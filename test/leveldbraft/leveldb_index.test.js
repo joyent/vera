@@ -1,6 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var assert = require('assert-plus');
+var buffertools = require('buffertools');
 var bunyan = require('bunyan');
 var fs = require('fs');
 var helper = require('../helper.js');
@@ -26,8 +27,61 @@ var KEY = new Buffer('00', 'hex');
 var VALUE = { 'foo': 'bar' };
 
 
+///--- Helpers
+
+function runLogKeyTest(t, i) {
+    var enc = leveldbIndex.logKey(i);
+    var dec = leveldbIndex.logKeyDecode(enc);
+    t.equal(i, dec);
+}
+
+
 
 ///--- Tests
+
+test('property key', function (t) {
+    var s = 'foobarbaz';
+    var enc = leveldbIndex.propertyKey(s);
+    var dec = leveldbIndex.propertyKeyDecode(enc);
+    t.equal(s, dec);
+    t.done();
+});
+
+
+test('log key', function (t) {
+    runLogKeyTest(t, 0);
+    runLogKeyTest(t, 1);
+    runLogKeyTest(t, 4294967295);
+    runLogKeyTest(t, 4294967296);
+    //Javascript's max integer - 1.
+    runLogKeyTest(t, 9007199254740991);
+    //Javascript's max integer.
+    assert.throws(function () {
+        runLogKeyTest(t, 9007199254740992);
+    });
+    //Javascript's max integer + 1 (an invalid integer).
+    assert.throws(function () {
+        runLogKeyTest(t, 9007199254740993);
+    });
+    t.done();
+});
+
+
+test('log key ordering', function (t) {
+    var a = [9007199254740991, 2, 1, 4294967295, 0,
+             9007199254740991, 4294967296];
+    var a_sorted = [0, 1, 2, 4294967295, 4294967296,
+                    9007199254740991, 9007199254740991];
+    var c = a.map(function (n) { return (leveldbIndex.logKey(n)); });
+    //Compare comes from buffertools
+    c.sort(function (l, r) { return (l.compare(r)); });
+    t.equal(a.length, c.length);
+    for (var i = 0; i < a.length; ++i) {
+        t.equal(a_sorted[i], leveldbIndex.logKeyDecode(c[i]));
+    }
+    t.done();
+});
+
 
 test('create new log, close and open', function (t) {
     vasync.pipeline({

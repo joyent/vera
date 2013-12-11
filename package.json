@@ -6,6 +6,7 @@
     "main": "./lib/index.js",
     "dependencies": {
         "assert-plus": "0.1.4",
+	"bignum": "0.6.2",
         "bunyan": "0.22.0",
         "extsprintf": "1.0.2",
         "level": "0.18.0",
@@ -13,6 +14,7 @@
         "vasync": "1.4.0"
     },
     "devDependencies": {
+	"buffertools": "1.1.1",
         "nodeunit": "0.8.2"
     },
     "engines": {
