@@ -4,8 +4,8 @@ var assert = require('assert-plus');
 var fs = require('fs');
 var helper = require('../helper.js');
 var LevelDbLog = require('../../lib/leveldb/log');
-//TODO: Should be persisted.
-var MemProps = require('../memraft/memprops');
+var levelDbIndex = require('../../lib/leveldb');
+var LevelDbProperties = require('../../lib/leveldb/properties');
 //TODO: Move the message bus out somewhere?
 var MessageBus = require('../memraft/messagebus');
 var path = require('path');
@@ -52,6 +52,18 @@ function raft(opts, cb) {
             function removeOldLevelDb(_, subcb) {
                 helper.rmrf(dbLocation, subcb);
             },
+            function initLevelDb(_, subcb) {
+                levelDbIndex.createOrOpen({
+                    'log': log,
+                    'location': dbLocation
+                }, function (err, res) {
+                    if (err) {
+                        return (subcb(err));
+                    }
+                    _.db = res.db;
+                    subcb();
+                });
+            },
             function initMessageBus(_, subcb) {
                 if (_.messageBus === undefined) {
                     _.messageBus = new MessageBus({ 'log': log });
@@ -64,21 +76,19 @@ function raft(opts, cb) {
                 _.stateMachine = new StateMachine({ 'log': log });
                 _.stateMachine.on('ready', subcb);
             },
-            function initDb(_, subcb) {
+            function initCommandLog(_, subcb) {
                 _.clog = new LevelDbLog({
                     'log': log,
-                    'location': dbLocation,
+                    'db': _.db,
                     'stateMachine': _.stateMachine
                 });
                 _.clog.on('ready', subcb);
                 _.clog.on('error', subcb);
             },
-            function initMemProps(_, subcb) {
-                _.properties = new MemProps({
+            function initLevelDbPropertiesProps(_, subcb) {
+                _.properties = new LevelDbProperties({
                     'log': log,
-                    'props': {
-                        'currentTerm': 0
-                    }
+                    'db': _.db
                 });
                 _.properties.on('ready', subcb);
             },

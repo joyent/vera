@@ -49,6 +49,7 @@ test('crud', function (t) {
                 props.on('ready', subcb);
             },
             function write(_, subcb) {
+                t.equal(0, props.get('currentTerm'));
                 t.ok(props.get('foo') === undefined);
                 t.ok(props.get('bar') === undefined);
                 var p = { 'foo': 'fval', 'bar': 'bval'};
