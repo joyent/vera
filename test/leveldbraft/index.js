@@ -6,8 +6,7 @@ var helper = require('../helper.js');
 var LevelDbLog = require('../../lib/leveldb/log');
 var levelDbIndex = require('../../lib/leveldb');
 var LevelDbProperties = require('../../lib/leveldb/properties');
-//TODO: Move the message bus out somewhere?
-var MessageBus = require('../memraft/messagebus');
+var MessageBus = require('../messagebus');
 var path = require('path');
 var Raft = require('../../lib/raft');
 var StateMachine = require('./statemachine');

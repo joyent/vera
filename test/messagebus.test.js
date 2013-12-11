@@ -1,7 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var helper = require('../helper.js');
+var helper = require('./helper');
 var MessageBus = require('./messagebus');
 var vasync = require('vasync');
 
