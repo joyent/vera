@@ -32,7 +32,7 @@ function MessageBus(opts) {
     self.blackholeUnknown = opts.blackholeUnknown === undefined ? false :
         opts.blackholeUnknown;
 
-    process.nextTick(function () {
+    setImmediate(function () {
         self.ready = true;
         self.emit('ready');
     });
@@ -60,7 +60,7 @@ MessageBus.prototype.send = function (from, to, message, cb) {
         throw new error.InternalError(sprintf('peer %s isn\'t known', to));
     }
     if (!self.ready) {
-        return (process.nextTick(cb.bind(
+        return (setImmediate(cb.bind(
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
 
@@ -110,7 +110,7 @@ MessageBus.prototype.tick = function (cb) {
     var thisBatch = Object.keys(self.messages);
     var total = thisBatch.length;
     if (total === 0) {
-        return (process.nextTick(cb));
+        return (setImmediate(cb));
     }
     thisBatch.forEach(function (k) {
         var m = self.messages[k];

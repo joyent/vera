@@ -237,7 +237,7 @@ test('one client request', function (t) {
 });
 
 
-//Just like in request vote, process.nextTick is the closest thing in node
+//Just like in request vote, setImmediate is the closest thing in node
 // that I'd call "parallel".
 test('parallel client requests', function (t) {
     vasync.pipeline({
@@ -283,11 +283,11 @@ test('parallel client requests', function (t) {
                     tryEnd();
                 }
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     l.clientRequest({ 'command': 'foo' }, onFooResponse);
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     l.clientRequest({ 'command': 'bar' }, onBarResponse);
                 });
             }

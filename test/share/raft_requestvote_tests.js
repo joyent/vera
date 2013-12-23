@@ -621,7 +621,7 @@ test('concurrent requests, same term', function (t) {
 
                 //Fortunately, node is predictable and will call this first
                 // since it was enqueued to next tick first.
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.requestVote(rv({
                         'candidateId': 'raft-1',
                         'term': 3,
@@ -635,7 +635,7 @@ test('concurrent requests, same term', function (t) {
                     });
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.requestVote(rv({
                         'candidateId': 'raft-2',
                         'term': 3,
@@ -683,7 +683,7 @@ test('concurrent requests, increasing terms', function (t) {
 
                 //Fortunately, node is predictable and will call this first
                 // since it was enqueued to next tick first.
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.requestVote(rv({
                         'candidateId': 'raft-1',
                         'term': 4,
@@ -697,7 +697,7 @@ test('concurrent requests, increasing terms', function (t) {
                     });
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.requestVote(rv({
                         'candidateId': 'raft-2',
                         'term': 4,
@@ -743,7 +743,7 @@ test('concurrent requests, latter increasing term', function (t) {
 
                 //Fortunately, node is predictable and will call this first
                 // since it was enqueued to next tick first.
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.requestVote(rv({
                         'candidateId': 'raft-1',
                         'term': 3,
@@ -757,7 +757,7 @@ test('concurrent requests, latter increasing term', function (t) {
                     });
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.requestVote(rv({
                         'candidateId': 'raft-2',
                         'term': 4,
@@ -803,7 +803,7 @@ test('concurrent requests, former increasing term', function (t) {
 
                 //Fortunately, node is predictable and will call this first
                 // since it was enqueued to next tick first.
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.requestVote(rv({
                         'candidateId': 'raft-1',
                         'term': 4,
@@ -817,7 +817,7 @@ test('concurrent requests, former increasing term', function (t) {
                     });
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.requestVote(rv({
                         'candidateId': 'raft-2',
                         'term': 3,

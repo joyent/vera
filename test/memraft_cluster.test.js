@@ -95,11 +95,11 @@ test('transition to candidate', function (t) {
                 //Set timeout low for the follower and it should become a
                 // candidate on the next tick...
                 r0.leaderTimeout = 1;
-                r0.tick();
-                r0.on('stateChange', function (state) {
+                r0.once('stateChange', function (state) {
                     t.equal('candidate', state);
                     return (subcb(null));
                 });
+                r0.tick();
             },
             function checkCluster(_, subcb) {
                 var c = _.cluster;
@@ -108,7 +108,7 @@ test('transition to candidate', function (t) {
 
                 //Now it should be a candidate...
                 t.equal(undefined, r0.leaderId);
-                assert.ok(r0.leaderTimeout > 0);
+                t.ok(r0.leaderTimeout > 0);
                 t.equal(1, r0.currentTerm());
                 t.equal(r0.id, r0.votedFor());
                 t.equal(2, Object.keys(r0.outstandingMessages).length);
@@ -355,7 +355,7 @@ test('one client request', function (t) {
 });
 
 
-//Just like in request vote, process.nextTick is the closest thing in node
+//Just like in request vote, setImmediate is the closest thing in node
 // that I'd call "parallel".
 test('parallel client requests', function (t) {
     vasync.pipeline({
@@ -411,11 +411,11 @@ test('parallel client requests', function (t) {
                     tryEnd();
                 }
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     l.clientRequest({ 'command': 'foo' }, onFooResponse);
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     l.clientRequest({ 'command': 'bar' }, onBarResponse);
                 });
 

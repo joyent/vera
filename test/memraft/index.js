@@ -54,7 +54,14 @@ function raft(opts, cb) {
             },
             function initRaft(_, subcb) {
                 r = new Raft(opts);
-                subcb();
+                r.once('stateChange', function (state) {
+                    if (state !== 'follower') {
+                        return (subcb(new Error(
+                            'new raft transitioned to something other than ' +
+                                'follower')));
+                    }
+                    subcb();
+                });
             }
         ]
     }, function (err) {
@@ -91,13 +98,13 @@ function tick(c, cb) {
     var self = c || this;
     if (Object.keys(self.messageBus.messages).length > 0) {
         self.messageBus.tick(function () {
-            return (process.nextTick(cb));
+            return (setImmediate(cb));
         });
     } else {
         Object.keys(self.peers).forEach(function (p) {
             self.peers[p].tick();
         });
-        return (process.nextTick(cb));
+        return (setImmediate(cb));
     }
 }
 

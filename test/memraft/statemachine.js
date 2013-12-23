@@ -23,7 +23,7 @@ function StateMachine(opts) {
     self.commitIndex = 0;
     self.data = undefined;
 
-    process.nextTick(function () {
+    setImmediate(function () {
         self.ready = true;
         self.emit('ready');
     });
@@ -42,7 +42,7 @@ StateMachine.prototype.execute = function (entries, cb) {
 
     var self = this;
     if (!self.ready) {
-        return (process.nextTick(cb.bind(
+        return (setImmediate(cb.bind(
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
 

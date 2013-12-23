@@ -115,7 +115,7 @@ StateMachine.prototype.execute = function (entries, cb) {
 
     var self = this;
     if (!self.ready) {
-        return (process.nextTick(cb.bind(
+        return (setImmediate(cb.bind(
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
     var nData = self.data;

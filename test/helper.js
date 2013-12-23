@@ -72,7 +72,7 @@ function readClog(clog, cb) {
 function rmrf(f, cb) {
     fs.stat(f, function (err, stats) {
         if (err && err.code === 'ENOENT') {
-            return (process.nextTick(cb));
+            return (setImmediate(cb));
         }
         if (err) {
             return (cb(err));

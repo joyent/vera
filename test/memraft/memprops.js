@@ -24,7 +24,7 @@ function MemProps(opts) {
     self.props = opts.props || {};
     self.ready = false;
 
-    process.nextTick(function () {
+    setImmediate(function () {
         self.ready = true;
         self.emit('ready');
     });
@@ -42,11 +42,11 @@ MemProps.prototype.write = function (props, cb) {
 
     var self = this;
     if (!self.ready) {
-        return (process.nextTick(cb.bind(
+        return (setImmediate(cb.bind(
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
 
-    process.nextTick(function () {
+    setImmediate(function () {
         Object.keys(props).forEach(function (k) {
             self.props[k] = props[k];
         });
@@ -69,10 +69,10 @@ MemProps.prototype.delete = function (key, cb) {
     assert.string(key, 'key');
     var self = this;
     if (!self.ready) {
-        return (process.nextTick(cb.bind(
+        return (setImmediate(cb.bind(
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
-    return (process.nextTick(function () {
+    return (setImmediate(function () {
         delete self.props[key];
         return (cb(null));
     }));

@@ -29,13 +29,13 @@ function FakeRaft() {
 FakeRaft.prototype.requestVote = function (req, cb) {
     var self = this;
     ++self.requestVoteCalled;
-    process.nextTick(cb);
+    setImmediate(cb);
 };
 
 FakeRaft.prototype.appendEntries = function (req, cb) {
     var self = this;
     ++self.appendEntriesCalled;
-    process.nextTick(cb);
+    setImmediate(cb);
 };
 
 function getTopology(n) {
@@ -71,7 +71,7 @@ test('request/reply', function (t) {
             messageId = mb.send(
                 'me', '0', { 'operation': 'appendEntries' }, onResponse);
 
-            process.nextTick(function () {
+            setImmediate(function () {
                 t.equal(1, Object.keys(mb.messages).length);
                 mb.tick(function () {
                     t.ok(responseCalled);

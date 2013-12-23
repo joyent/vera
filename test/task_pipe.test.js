@@ -30,7 +30,7 @@ test('single task', function (t) {
                 assert.arrayOfString(opts);
                 assert.ok(opts.length === 1);
                 taskLog.push(opts[0]);
-                process.nextTick(cb);
+                setImmediate(cb);
             }
         } ]
     });
@@ -64,7 +64,7 @@ test('multiple tasks', function (t) {
                 assert.arrayOfString(opts);
                 assert.ok(opts.length === 1);
                 taskLog.push(opts[0]);
-                process.nextTick(cb);
+                setImmediate(cb);
             }
         } ]
     });
@@ -108,7 +108,7 @@ test('consume multiple', function (t) {
                 assert.arrayOfString(opts);
                 assert.ok(opts.length === 2);
                 taskLog.push(opts);
-                process.nextTick(cb);
+                setImmediate(cb);
             },
             'choose': function (arr) {
                 return (2);
@@ -305,17 +305,17 @@ test('chain break', function (t) {
 });
 
 
-test('nextTick callback', function (t) {
+test('setImmediate callback', function (t) {
     var taskPipe = new TaskPipe({
         'tasks': [ {
             'name': 'tp-1',
             'func': function (opts, cb) {
-                process.nextTick(cb);
+                setImmediate(cb);
             }
         }, {
             'name': 'tp-2',
             'func': function (opts, cb) {
-                process.nextTick(cb);
+                setImmediate(cb);
             }
         } ]
     });

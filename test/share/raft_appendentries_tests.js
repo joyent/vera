@@ -1401,7 +1401,7 @@ test('commit index is end of updates', function (t) {
 
 
 //Just like in the request votes test, *nothing* in node is concurrent, but
-// nextTicking 2 functions is as close as it is going to get.
+// setImmediate'ing 2 functions is as close as it is going to get.
 test('concurrent appends, same terms', function (t) {
     var self = this;
     vasync.pipeline({
@@ -1418,7 +1418,7 @@ test('concurrent appends, same terms', function (t) {
                     }
                 }
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.appendEntries(ae({
                         'term': 3,
                         'leaderId': 'raft-1',
@@ -1432,7 +1432,7 @@ test('concurrent appends, same terms', function (t) {
                     });
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.appendEntries(ae({
                         'term': 3,
                         'leaderId': 'raft-1',
@@ -1486,7 +1486,7 @@ test('concurrent appends, same future terms', function (t) {
                     }
                 }
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.appendEntries(ae({
                         'term': 4,
                         'leaderId': 'raft-2',
@@ -1500,7 +1500,7 @@ test('concurrent appends, same future terms', function (t) {
                     });
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.appendEntries(ae({
                         'term': 4,
                         'leaderId': 'raft-2',
@@ -1554,7 +1554,7 @@ test('concurrent appends, first future term', function (t) {
                     }
                 }
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.appendEntries(ae({
                         'term': 5,
                         'leaderId': 'raft-2',
@@ -1568,7 +1568,7 @@ test('concurrent appends, first future term', function (t) {
                     });
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.appendEntries(ae({
                         'term': 4,
                         'leaderId': 'raft-2',
@@ -1626,7 +1626,7 @@ test('concurrent appends, second future term', function (t) {
                     }
                 }
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.appendEntries(ae({
                         'term': 4,
                         'leaderId': 'raft-2',
@@ -1640,7 +1640,7 @@ test('concurrent appends, second future term', function (t) {
                     });
                 });
 
-                process.nextTick(function () {
+                setImmediate(function () {
                     r.appendEntries(ae({
                         'term': 5,
                         'leaderId': 'raft-2',

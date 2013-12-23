@@ -560,7 +560,7 @@ test('left ends while waiting for right readable', function (t) {
             // 3) left ends
             self.push(null);
         }
-        process.nextTick(function () {
+        setImmediate(function () {
             //ps should have been set by the next tick.
             t.ok(self.ps);
             if (!self.ps.waitingForReadable) {

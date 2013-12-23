@@ -27,7 +27,7 @@ var util = require('util');
  * It's intentional that slice takes a callback whereas last doesn't.  It is
  * expected that anything that wants the last entry wants it "now".
  *
- * All those process.nextTicks make sure that this is "fully asynchronous",
+ * All those setImmediates make sure that this is "fully asynchronous",
  * which seems silly for an in-memory thing, but it should catch weird aync bugs
  * in the raft class.  That's the hope, anyways.  Also see:
  * http://nodejs.org/api/process.html#process_process_nexttick_callback
@@ -50,7 +50,7 @@ function MemLog(opts) {
     self.nextIndex = self.clog.length;
     self.ready = false;
 
-    process.nextTick(function () {
+    setImmediate(function () {
         self.ready = true;
         self.emit('ready');
     });
@@ -203,13 +203,13 @@ MemLog.prototype.slice = function (start, end, cb) {
     assert.func(cb, 'cb');
     var self = this;
     if (!self.ready) {
-        return (process.nextTick(cb.bind(
+        return (setImmediate(cb.bind(
             null, new error.InternalError('I wasn\'t ready yet.'))));
     }
     if (end < start) {
         end = start;
     }
-    return (process.nextTick(
+    return (setImmediate(
         cb.bind(null, null, lib.memStream(self.clog.slice(start, end)))));
 };
 
