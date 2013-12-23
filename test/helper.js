@@ -26,7 +26,7 @@ function e(index, term) {
     return ({
         'index': index,
         'term': term,
-        'command': index === 0 ? 'noop' : 'command-' + index + '-' + term
+        'command': index !== 0 ? 'command-' + index + '-' + term : 'noop'
     });
 }
 

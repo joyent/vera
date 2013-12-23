@@ -579,7 +579,7 @@ test('only commit index update (like a heartbeat)', function (t) {
 });
 
 
-test('leader step down', function (t) {
+test('leader step down, term change', function (t) {
     var self = this;
     vasync.pipeline({
         arg: {},
