@@ -41,13 +41,6 @@ before(function (cb) {
                     self.cluster = cluster;
                     subcb();
                 });
-            },
-            function initSnapshotter(_, subcb) {
-                var snapshotter = new Snapshotter({ log: LOG });
-                snapshotter.on('ready', function () {
-                    self.snapshotter = snapshotter;
-                    subcb();
-                });
             }
         ]
     }, function (err) {
@@ -62,11 +55,11 @@ before(function (cb) {
 test('get snapshot', function (t) {
     var self = this;
     var r = self.cluster.peers['raft-0'];
-    var s = self.snapshotter;
+    var s = r.snapshotter;
     vasync.pipeline({
         funcs: [
             function (_, subcb) {
-                s.getLatest(r, function (err, snapshot) {
+                s.getLatest(function (err, snapshot) {
                     if (err) {
                         return (subcb(err));
                     }
@@ -96,7 +89,7 @@ test('get snapshot', function (t) {
 test('apply snapshot to new', function (t) {
     var self = this;
     var r0 = self.cluster.peers['raft-0'];
-    var s = self.snapshotter;
+    var s = r0.snapshotter;
     var r1;
     var snapshot;
     vasync.pipeline({
@@ -127,7 +120,7 @@ test('apply snapshot to new', function (t) {
                 });
             },
             function (_, subcb) {
-                s.getLatest(r0, function (err, snap) {
+                s.getLatest(function (err, snap) {
                     if (err) {
                         return (subcb(err));
                     }
@@ -136,9 +129,6 @@ test('apply snapshot to new', function (t) {
                 });
             },
             function (_, subcb) {
-                //TODO: This is a hack... not sure where we should be setting
-                // this for real.
-                r1.snapshotter = s;
                 r1.installSnapshot({
                     'snapshot': snapshot
                 }, subcb);
@@ -151,7 +141,7 @@ test('apply snapshot to new', function (t) {
                 t.equal(undefined, r1.votedFor());
                 //This is a little wonky.  In "real life" the entry for
                 // r1 would have been a part of r0's peer list.  But here we're
-                // just checking that it
+                // just checking that it copies over the peer list.
                 t.deepEqual([ 'raft-0' ], r1.peers);
                 t.equal(4, r1.stateMachine.commitIndex);
                 t.equal('bang', r1.stateMachine.data);

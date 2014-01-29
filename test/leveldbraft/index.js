@@ -6,6 +6,7 @@ var helper = require('../helper.js');
 var LevelDbLog = require('../../lib/leveldb/log');
 var levelDbIndex = require('../../lib/leveldb');
 var LevelDbProperties = require('../../lib/leveldb/properties');
+var LevelDbSnapshotter = require('../../lib/leveldb/snapshotter');
 var MessageBus = require('../messagebus');
 var path = require('path');
 var Raft = require('../../lib/raft');
@@ -92,6 +93,13 @@ function raft(opts, cb) {
                     'db': _.db
                 });
                 _.properties.on('ready', subcb);
+            },
+            function initLevelDbSnapshotter(_, subcb) {
+                _.snapshotter = new LevelDbSnapshotter({
+                    'log': log,
+                    'db': _.db
+                });
+                _.snapshotter.on('ready', subcb);
             },
             function initRaft(_, subcb) {
                 r = new Raft(opts);

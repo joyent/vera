@@ -6,6 +6,7 @@ var MemProps = require('./memprops');
 var MessageBus = require('../messagebus');
 var Raft = require('../../lib/raft');
 var sprintf = require('extsprintf').sprintf;
+var Snapshotter = require('./snapshotter');
 var StateMachine = require('./statemachine');
 var vasync = require('vasync');
 
@@ -51,6 +52,12 @@ function raft(opts, cb) {
                     }
                 });
                 _.properties.on('ready', subcb);
+            },
+            function initSnapshotter(_, subcb) {
+                _.snapshotter = new Snapshotter({
+                    'log': log
+                });
+                _.snapshotter.on('ready', subcb);
             },
             function initRaft(_, subcb) {
                 r = new Raft(opts);
