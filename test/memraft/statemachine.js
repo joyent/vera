@@ -1,6 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var assert = require('assert-plus');
+var deepcopy = require('deepcopy');
 var events = require('events');
 var error = require('../../lib/error');
 var sprintf = require('extsprintf').sprintf;
@@ -64,6 +65,26 @@ StateMachine.prototype.execute = function (entries, cb) {
     });
 
     entries.on('end', cb);
+};
+
+
+StateMachine.prototype.snapshot = function () {
+    var self = this;
+    return ({
+        'commitIndex': self.commitIndex,
+        'data': deepcopy(self.data)
+    });
+};
+
+
+StateMachine.prototype.from = function (snapshot) {
+    assert.object(snapshot, 'snapshot');
+
+    var self = this;
+    var sm = new StateMachine({ log: self.log });
+    sm.commitIndex = snapshot.commitIndex;
+    sm.data = snapshot.data;
+    return (sm);
 };
 
 

@@ -9,7 +9,7 @@ var stream = require('stream');
 var util = require('util');
 var vasync = require('vasync');
 
-// All the actual tests are here...
+// Almost all the actual tests are here...
 var commandLogTests = require('../share/command_log_tests.js');
 
 
@@ -98,6 +98,77 @@ test('test noop transform entry stream', function (t) {
                     });
                 });
             }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('clone', function (t) {
+    var self = this;
+    var sm = self.stateMachine;
+    var cl = self.clog;
+    vasync.pipeline({
+        funcs: [
+            function (_, subcb) {
+                t.deepEqual([ e(0, 0) ], cl.snapshot());
+                subcb();
+            },
+            function (_, subcb) {
+                cl.append({
+                    'commitIndex': 0,
+                    'term': 1,
+                    'entries': entryStream([
+                        0, 0,
+                        1, 0,
+                        2, 1
+                    ])
+                }, subcb);
+            },
+            function (_, subcb) {
+                t.deepEqual([
+                    e(0, 0),
+                    e(1, 0),
+                    e(2, 1)
+                ], cl.snapshot());
+                subcb();
+            },
+            function (_, subcb) {
+                //It's OK to use the same state machine here for the test
+                // because we know we won't care about it ever after.  This is
+                // not safe to do elsewhere.
+                var clClone = cl.from(cl.snapshot(), sm);
+                clClone.on('ready', function () {
+                    t.deepEqual([
+                        e(0, 0),
+                        e(1, 0),
+                        e(2, 1)
+                    ], clClone.snapshot());
+                    t.equal(3, clClone.nextIndex);
+                    clClone.append({
+                        'commitIndex': 0,
+                        'term': 1,
+                        'entries': entryStream([
+                            2, 1,
+                            3, 1
+                        ])
+                    }, function () {
+                        t.deepEqual([
+                            e(0, 0),
+                            e(1, 0),
+                            e(2, 1),
+                            e(3, 1)
+                        ], clClone.snapshot());
+                        t.equal(4, clClone.nextIndex);
+                        subcb();
+                    });
+                });
+            }
+
         ]
     }, function (err) {
         if (err) {

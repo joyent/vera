@@ -1,6 +1,10 @@
 {
     "name": "vera",
     "description": "A distributed consensus service.",
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/joyent/vera.git"
+    },
     "version": "0.0.1",
     "author": "Joyent (joyent.com)",
     "main": "./lib/index.js",
@@ -8,6 +12,7 @@
         "assert-plus": "0.1.4",
 	"bignum": "0.6.2",
         "bunyan": "0.22.0",
+        "deepcopy": "0.3.3",
         "extsprintf": "1.0.2",
         "level": "0.18.0",
         "posix-getopt": "1.0.0",

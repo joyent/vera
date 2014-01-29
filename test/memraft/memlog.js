@@ -1,6 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var assert = require('assert-plus');
+var deepcopy = require('deepcopy');
 var events = require('events');
 var error = require('../../lib/error');
 var lib = require('../../lib');
@@ -220,6 +221,24 @@ MemLog.prototype.last = function () {
         throw new error.InternalError('I wasn\'t ready yet.');
     }
     return (self.clog[self.clog.length - 1]);
+};
+
+
+MemLog.prototype.snapshot = function () {
+    var self = this;
+    return (deepcopy(self.clog));
+};
+
+
+MemLog.prototype.from = function (snapshot, stateMachine) {
+    assert.object(snapshot, 'snapshot');
+    assert.object(stateMachine, 'stateMachine');
+
+    var self = this;
+    var ml = new MemLog({ log: self.log, stateMachine: stateMachine });
+    ml.clog = snapshot;
+    ml.nextIndex = ml.clog.length;
+    return (ml);
 };
 
 

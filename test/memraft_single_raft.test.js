@@ -29,7 +29,8 @@ function checkInitalRaft(raft, t) {
     t.equal(0, raft.currentTerm());
     t.equal(undefined, raft.votedFor());
     assert.arrayOfString(raft.peers);
-    t.ok(raft.peers.indexOf(raft.id) === -1);
+    t.ok(raft.peers.indexOf(raft.id) !== -1);
+    t.ok(raft.filteredPeers.indexOf(raft.id) === -1);
     assert.object(raft.clog);
     assert.object(raft.stateMachine);
     assert.object(raft.messageBus);
