@@ -27,24 +27,28 @@ var LOG = bunyan.createLogger({
 
 before(function (cb) {
     var self = this;
-    vasync.pipeline({
-        funcs: [
-            function initSingleCluster(_, subcb) {
-                memraft.cluster({
-                    log: LOG,
-                    size: 1,
-                    electLeader: true
-                }, function (err, cluster) {
-                    if (err) {
-                        return (subcb(err));
-                    }
-                    self.cluster = cluster;
-                    subcb();
-                });
-            }
-        ]
-    }, function (err) {
-        cb(err);
+    var peers = [ 'raft-0', 'raft-1' ];
+    vasync.forEachParallel({
+        'inputs': peers.map(function (p) {
+            return ({
+                'log': LOG,
+                'id': p,
+                'peers': [ p ]
+            });
+        }),
+        'func': memraft.raft
+    }, function (err, res) {
+        if (err) {
+            return (cb(err));
+        }
+        self.oldRaft = res.successes[0];
+        self.newRaft = res.successes[1];
+        //Manually set the old raft to leader so that we can make client
+        // requests.
+        self.oldRaft.on('stateChange', function (state) {
+            cb();
+        });
+        self.oldRaft.transitionToLeader();
     });
 });
 
@@ -54,12 +58,12 @@ before(function (cb) {
 
 test('get snapshot', function (t) {
     var self = this;
-    var r = self.cluster.peers['raft-0'];
-    var s = r.snapshotter;
+    var oldRaft = self.oldRaft;
+    var snapshotter = oldRaft.snapshotter;
     vasync.pipeline({
         funcs: [
             function (_, subcb) {
-                s.getLatest(function (err, snapshot) {
+                snapshotter.getLatest(function (err, snapshot) {
                     if (err) {
                         return (subcb(err));
                     }
@@ -88,15 +92,15 @@ test('get snapshot', function (t) {
 
 test('apply snapshot to new', function (t) {
     var self = this;
-    var r0 = self.cluster.peers['raft-0'];
-    var s = r0.snapshotter;
-    var r1;
+    var oldRaft = self.oldRaft;
+    var snapshotter = oldRaft.snapshotter;
+    var newRaft = self.newRaft;
     var snapshot;
     vasync.pipeline({
         funcs: [
             function (_, subcb) {
                 vasync.forEachPipeline({
-                    'func': r0.clientRequest.bind(r0),
+                    'func': oldRaft.clientRequest.bind(oldRaft),
                     'inputs': [
                         { 'command': 'foo' },
                         { 'command': 'bar' },
@@ -106,21 +110,7 @@ test('apply snapshot to new', function (t) {
                 }, subcb);
             },
             function (_, subcb) {
-                //Init a separate, new raft instance.
-                memraft.raft({
-                    'log': LOG,
-                    'id': 'raft-1',
-                    'peers': []
-                }, function (err, raft) {
-                    if (err) {
-                        return (subcb(err));
-                    }
-                    r1 = raft;
-                    subcb();
-                });
-            },
-            function (_, subcb) {
-                s.getLatest(function (err, snap) {
+                snapshotter.getLatest(function (err, snap) {
                     if (err) {
                         return (subcb(err));
                     }
@@ -129,27 +119,27 @@ test('apply snapshot to new', function (t) {
                 });
             },
             function (_, subcb) {
-                r1.installSnapshot({
+                newRaft.installSnapshot({
                     'snapshot': snapshot
                 }, subcb);
             },
             function (_, subcb) {
                 //Check everything we can with the newraft instance.
-                t.equal('raft-1', r1.id);
-                t.equal(undefined, r1.leaderId);
-                t.equal(0, r1.currentTerm());
-                t.equal(undefined, r1.votedFor());
-                //This is a little wonky.  In "real life" the entry for
-                // r1 would have been a part of r0's peer list.  But here we're
+                t.equal('raft-1', newRaft.id);
+                t.equal(undefined, newRaft.leaderId);
+                t.equal(0, newRaft.currentTerm());
+                t.equal(undefined, newRaft.votedFor());
+                //This is a little wonky.  In "real life" the entry for newRaft
+                // would have been a part of r0's peer list.  But here we're
                 // just checking that it copies over the peer list.
-                t.deepEqual([ 'raft-0' ], r1.peers);
-                t.equal(4, r1.stateMachine.commitIndex);
-                t.equal('bang', r1.stateMachine.data);
+                t.deepEqual([ 'raft-0' ], newRaft.peers);
+                t.equal(4, newRaft.stateMachine.commitIndex);
+                t.equal('bang', newRaft.stateMachine.data);
                 t.deepEqual([ 'noop', 'foo', 'bar', 'baz', 'bang' ],
-                            r1.clog.clog.map(function (x) {
+                            newRaft.clog.clog.map(function (x) {
                                 return (x.command);
                             }));
-                t.ok(Object.keys(r1.outstandingMessages).length === 0);
+                t.ok(Object.keys(newRaft.outstandingMessages).length === 0);
                 subcb();
             }
         ]
