@@ -1,9 +1,6 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
-var bunyan = require('bunyan');
 var helper = require('../helper.js');
-var memraft = require('../memraft');
-var Snapshotter = require('./snapshotter');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -13,82 +10,11 @@ var vasync = require('vasync');
 
 var before = helper.before;
 var e = helper.e;
-var entryStream = helper.entryStream;
 var test = helper.test;
-var LOG = bunyan.createLogger({
-    level: (process.env.LOG_LEVEL || 'fatal'),
-    name: 'memlog-test',
-    stream: process.stdout
-});
 
 
 
-///--- Setup/Teardown
-
-before(function (cb) {
-    var self = this;
-    var peers = [ 'raft-0', 'raft-1' ];
-    vasync.forEachParallel({
-        'inputs': peers.map(function (p) {
-            return ({
-                'log': LOG,
-                'id': p,
-                'peers': [ p ]
-            });
-        }),
-        'func': memraft.raft
-    }, function (err, res) {
-        if (err) {
-            return (cb(err));
-        }
-        self.oldRaft = res.successes[0];
-        self.newRaft = res.successes[1];
-        //Manually set the old raft to leader so that we can make client
-        // requests.
-        self.oldRaft.on('stateChange', function (state) {
-            cb();
-        });
-        self.oldRaft.transitionToLeader();
-    });
-});
-
-
-
-///--- Tests only for the memraft...
-
-test('get snapshot', function (t) {
-    var self = this;
-    var oldRaft = self.oldRaft;
-    var snapshotter = oldRaft.snapshotter;
-    vasync.pipeline({
-        funcs: [
-            function (_, subcb) {
-                snapshotter.getLatest(function (err, snapshot) {
-                    if (err) {
-                        return (subcb(err));
-                    }
-                    t.deepEqual({
-                        'peerData': [ 'raft-0' ],
-                        'stateMachineData': {
-                            'commitIndex': 0,
-                            'data': undefined
-                        },
-                        'clogData': [
-                            e(0, 0)
-                        ]
-                    }, snapshot);
-                    subcb();
-                });
-            }
-        ]
-    }, function (err) {
-        if (err) {
-            t.fail(err);
-        }
-        t.done();
-    });
-});
-
+///--- Tests
 
 test('apply snapshot to new', function (t) {
     var self = this;
