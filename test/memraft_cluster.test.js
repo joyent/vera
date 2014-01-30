@@ -319,7 +319,7 @@ test('one client request', function (t) {
             function propagateCommitIndex(_, subcb) {
                 var c = _.cluster;
                 var l = c.getLeader();
-                var apeer = c.peers[l.peers[0]];
+                var apeer = c.peers[l.filteredPeers[0]];
 
                 function onIndexChange() {
                     //Check Peers

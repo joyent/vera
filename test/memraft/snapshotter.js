@@ -66,6 +66,9 @@ Snapshotter.prototype.getLatest = function (cb) {
     var raft = self.raft;
     var snapshot = {};
 
+    //TODO: If we want this to work across a network, we're going to have to
+    // be smarter about how we package this up.  It's fine for now.
+
     //Make Peers
     snapshot.peerData = deepcopy(raft.peers);
 

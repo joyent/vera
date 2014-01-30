@@ -48,6 +48,15 @@ test('property key', function (t) {
 });
 
 
+test('internal property key', function (t) {
+    var s = 'foobarbaz';
+    var enc = leveldbIndex.internalPropertyKey(s);
+    var dec = leveldbIndex.propertyKeyDecode(enc);
+    t.equal(s, dec);
+    t.done();
+});
+
+
 test('log key', function (t) {
     runLogKeyTest(t, 0);
     runLogKeyTest(t, 1);

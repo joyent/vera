@@ -135,12 +135,18 @@ test('apply snapshot to new', function (t) {
                 t.deepEqual([ 'raft-0' ], newRaft.peers);
                 t.equal(4, newRaft.stateMachine.commitIndex);
                 t.equal('bang', newRaft.stateMachine.data);
-                t.deepEqual([ 'noop', 'foo', 'bar', 'baz', 'bang' ],
-                            newRaft.clog.clog.map(function (x) {
-                                return (x.command);
-                            }));
                 t.ok(Object.keys(newRaft.outstandingMessages).length === 0);
-                subcb();
+                helper.readClog(newRaft.clog, function (err, entries) {
+                    if (err) {
+                        return (subcb(err));
+                    }
+                    t.equals(5, entries.length);
+                    t.deepEqual([ 'noop', 'foo', 'bar', 'baz', 'bang' ],
+                                entries.map(function (x) {
+                                    return (x.command);
+                                }));
+                    subcb();
+                });
             }
         ]
     }, function (err) {
@@ -150,3 +156,5 @@ test('apply snapshot to new', function (t) {
         t.done();
     });
 });
+
+// Apply snapshot, having had voted for some raft during some term

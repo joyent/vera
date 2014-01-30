@@ -21,9 +21,9 @@ var util = require('util');
 
 ///--- Globals
 
-//In prod, this would be a very bad thing to share the namespace with the
-// internal properties.
-var propertyKey = levelDbIndex.propertyKey;
+var propertyKey = levelDbIndex.internalPropertyKey;
+var COMMIT_INDEX_KEY = 'testStateMachineCommitIndex';
+var DATA_KEY = 'testStateMachineData';
 
 
 
@@ -78,10 +78,10 @@ function verifyDb() {
     }
 
     function loadCommitIndex() {
-        self.db.get(propertyKey('stateMachineCommitIndex'),
+        self.db.get(propertyKey(COMMIT_INDEX_KEY),
                     function (err, val) {
                         if (err && err.name === 'NotFoundError') {
-                            props['stateMachineCommitIndex'] = 0;
+                            props[COMMIT_INDEX_KEY] = 0;
                         } else if (err) {
                             return (self.emit('error', err));
                         } else {
@@ -92,7 +92,7 @@ function verifyDb() {
     }
 
     function loadData() {
-        self.db.get(propertyKey('stateMachineData'),
+        self.db.get(propertyKey(DATA_KEY),
                     function (err, val) {
                         if (err && err.name !== 'NotFoundError') {
                             return (self.emit('error', err));
@@ -141,12 +141,13 @@ StateMachine.prototype.execute = function (entries, cb) {
     entries.on('end', function () {
         var batch = [];
         if (nData !== undefined && nData !== null) {
-            batch.push({ 'type': 'put', 'key': propertyKey('stateMachineData'),
+            batch.push({ 'type': 'put',
+                         'key': propertyKey(DATA_KEY),
                          'value': nData });
         }
         if (nCommitIndex !== undefined && nCommitIndex !== null) {
             batch.push({ 'type': 'put',
-                         'key': propertyKey('stateMachineCommitIndex'),
+                         'key': propertyKey(COMMIT_INDEX_KEY),
                          'value': nCommitIndex });
         }
         self.db.batch(batch, function (err) {

@@ -15,12 +15,12 @@
         "deepcopy": "0.3.3",
         "extsprintf": "1.0.2",
         "level": "0.18.0",
+        "lstream": "0.0.4",
         "posix-getopt": "1.0.0",
         "vasync": "1.4.0"
     },
     "devDependencies": {
         "buffertools": "1.1.1",
-        "lstream": "0.0.3",
         "nodeunit": "0.8.2"
     },
     "engines": {
