@@ -109,6 +109,21 @@ function verifyDb() {
 
 ///--- API
 
+//TODO: Is there a better way to do this?  Yuck!
+StateMachine.prototype.from = function (db, cb) {
+    assert.object(db, 'db');
+    assert.func(cb, 'cb');
+
+    var self = this;
+    var sm = new StateMachine({
+        'log': self.log,
+        'db': db
+    });
+    sm.on('ready', function () {
+        return (cb(null, sm));
+    });
+};
+
 StateMachine.prototype.execute = function (entries, cb) {
     assert.object(entries, 'entries');
     assert.func(cb, 'cb');
