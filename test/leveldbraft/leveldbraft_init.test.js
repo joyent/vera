@@ -5,6 +5,7 @@ var bunyan = require('bunyan');
 var fs = require('fs');
 var helper = require('../helper.js');
 var leveldbraft = require('../leveldbraft');
+var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
 
@@ -16,8 +17,8 @@ var raftInitTests = require('../share/raft_init_tests.js');
 
 ///--- Globals
 
-var after = helper.after;
-var before = helper.before;
+var after = nodeunitPlus.after;
+var before = nodeunitPlus.before;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',

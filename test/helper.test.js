@@ -1,6 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var helper = require('./helper.js');
+var test = require('nodeunit-plus').test;
 
 
 
@@ -8,7 +9,6 @@ var helper = require('./helper.js');
 
 var e = helper.e;
 var entryStream = helper.entryStream;
-var test = helper.test;
 
 
 

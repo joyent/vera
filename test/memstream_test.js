@@ -2,15 +2,14 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var helper = require('./helper');
 var lib = require('../lib');
+var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
 
 
 ///--- Globals
 
-var test = helper.test;
 var memStream = lib.memStream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),

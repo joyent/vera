@@ -2,10 +2,10 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var helper = require('./helper.js');
 var lib = require('../lib');
 var PairsStream = require('../lib/pairs_stream');
 var Readable = require('stream').Readable;
+var test = require('nodeunit-plus').test;
 var util = require('util');
 var vasync = require('vasync');
 
@@ -14,7 +14,6 @@ var vasync = require('vasync');
 ///--- Globals
 
 var memStream = lib.memStream;
-var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'memprops-test',

@@ -6,13 +6,13 @@ var helper = require('../helper.js');
 var leveldbIndex = require('../../lib/leveldb');
 var LevelProps = require('../../lib/leveldb/properties');
 var path = require('path');
+var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
 
 
 ///--- Globals
 
-var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'leveldb_properties-test',

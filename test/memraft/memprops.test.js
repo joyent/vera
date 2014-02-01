@@ -1,15 +1,14 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var helper = require('../helper.js');
 var MemProps = require('./memprops');
+var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
 
 
 ///--- Globals
 
-var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'memprops-test',

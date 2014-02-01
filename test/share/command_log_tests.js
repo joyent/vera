@@ -2,6 +2,7 @@
 
 var helper = require('../helper.js');
 var lib = require('../../lib');
+var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
 
@@ -13,7 +14,6 @@ var entryStream = helper.entryStream;
 var memStream = lib.memStream;
 var readClog = helper.readClog;
 var readStream = helper.readStream;
-var test = helper.test;
 
 
 

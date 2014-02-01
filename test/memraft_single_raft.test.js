@@ -2,15 +2,13 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var helper = require('./helper.js');
 var memraft = require('./memraft');
+var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
-
 
 
 ///--- Globals
 
-var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',

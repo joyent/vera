@@ -3,6 +3,7 @@
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var memStream = require('../../lib').memStream;
+var test = require('nodeunit-plus').test;
 var StateMachine = require('./statemachine');
 var vasync = require('vasync');
 
@@ -10,7 +11,6 @@ var vasync = require('vasync');
 
 ///--- Globals
 
-var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'statemachine-test',

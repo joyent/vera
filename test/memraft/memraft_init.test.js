@@ -5,6 +5,7 @@ var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var lib = require('../../lib');
 var memraft = require('../memraft');
+var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
 // All the actual tests are here...
@@ -14,7 +15,7 @@ var raftInitTests = require('../share/raft_init_tests.js');
 
 ///--- Globals
 
-var before = helper.before;
+var before = nodeunitPlus.before;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',

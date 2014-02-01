@@ -2,7 +2,7 @@ I think this directory deserves a bit of explanation.  Because of the way the
 helper plays games with the module.parent.exports, if you require a set of tests
 in another file it'll mess with your own module.parent.exports.  This has the
 magical consequence that you can put a set of tests in one file and the init
-of the tests in the other, effetively sharing the same set of tests for two
+of the tests in the other, effectively sharing the same set of tests for two
 implementations of a class.
 
 This is illustrated with the following example I removed after coming up with a

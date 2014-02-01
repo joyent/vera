@@ -1,14 +1,13 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var helper = require('../helper.js');
+var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
 
 
 ///--- Globals
 
-var test = helper.test;
 var LOW_LEADER_TIMEOUT = 2;
 
 

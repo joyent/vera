@@ -3,6 +3,7 @@
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var memraft = require('../memraft');
+var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
 // All the actual tests are here...
@@ -12,10 +13,10 @@ var raftInstallSnapshotTests =
 
 ///--- Globals
 
-var before = helper.before;
+var before = nodeunitPlus.before;
 var e = helper.e;
 var entryStream = helper.entryStream;
-var test = helper.test;
+var test = nodeunitPlus.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'memlog-test',

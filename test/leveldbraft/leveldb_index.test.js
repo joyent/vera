@@ -9,13 +9,13 @@ var leveldbIndex = require('../../lib/leveldb');
 var path = require('path');
 var StateMachine = require('../memraft/statemachine');
 var stream = require('stream');
+var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
 
 
 ///--- Globals
 
-var test = helper.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'leveldb_index-test',

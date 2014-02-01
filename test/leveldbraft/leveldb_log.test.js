@@ -8,6 +8,7 @@ var LevelDbLog = require('../../lib/leveldb/log');
 var path = require('path');
 var StateMachine = require('../memraft/statemachine');
 var stream = require('stream');
+var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
 // All the actual tests are here...
@@ -17,8 +18,8 @@ var commandLogTests = require('../share/command_log_tests.js');
 
 ///--- Globals
 
-var after = helper.after;
-var before = helper.before;
+var after = nodeunitPlus.after;
+var before = nodeunitPlus.before;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'leveldb_log-test',

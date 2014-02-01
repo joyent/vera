@@ -11,6 +11,7 @@ var http = require('http');
 var lstream = require('lstream');
 var levelup = require('level');
 var path = require('path');
+var test = require('nodeunit-plus').test;
 var Transform = require('stream').Transform;
 var vasync = require('vasync');
 
@@ -19,7 +20,6 @@ var vasync = require('vasync');
 ///--- Globals
 
 var e = helper.e;
-var test = helper.test;
 var rmrf = helper.rmrf;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),

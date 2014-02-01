@@ -2,6 +2,7 @@
 
 var helper = require('../helper.js');
 var lib = require('../../lib');
+var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
 
@@ -9,7 +10,6 @@ var vasync = require('vasync');
 ///--- Globals
 
 var entryStream = helper.entryStream;
-var test = helper.test;
 var LOW_LEADER_TIMEOUT = 2;
 
 

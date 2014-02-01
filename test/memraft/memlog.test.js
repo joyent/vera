@@ -4,6 +4,7 @@ var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var lib = require('../../lib');
 var MemLog = require('./memlog');
+var nodeunitPlus = require('nodeunit-plus');
 var StateMachine = require('./statemachine');
 var stream = require('stream');
 var util = require('util');
@@ -16,10 +17,10 @@ var commandLogTests = require('../share/command_log_tests.js');
 
 ///--- Globals
 
-var before = helper.before;
+var before = nodeunitPlus.before;
 var e = helper.e;
 var entryStream = helper.entryStream;
-var test = helper.test;
+var test = nodeunitPlus.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'memlog-test',
