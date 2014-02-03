@@ -1,44 +1,51 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
+var assert = require('assert-plus');
 var bunyan = require('bunyan');
+var fs = require('fs');
 var helper = require('../helper.js');
-var memraft = require('../memraft');
+var leveldbraft = require('../leveldbraft');
 var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
+
+
 
 // All the actual tests are here...
 var raftInstallSnapshotTests =
     require('../share/raft_install_snapshot_tests.js');
 
 
+
 ///--- Globals
 
+var after = nodeunitPlus.after;
 var before = nodeunitPlus.before;
-var e = helper.e;
-var entryStream = helper.entryStream;
-var test = nodeunitPlus.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
-    name: 'memlog-test',
+    name: 'raft-test',
     stream: process.stdout
 });
+var LOW_LEADER_TIMEOUT = 2;
 
 
 
 ///--- Setup/Teardown
 
 before(function (cb) {
+    assert.func(cb, 'cb');
     var self = this;
+
     var peers = [ 'raft-0', 'raft-1' ];
     vasync.forEachParallel({
         'inputs': peers.map(function (p) {
             return ({
                 'log': LOG,
                 'id': p,
-                'peers': [ p ]
+                'peers': [ p ],
+                'dbName': 'raft_install_snapshot_tests_db_' + p
             });
         }),
-        'func': memraft.raft
+        'func': leveldbraft.raft
     }, function (err, res) {
         if (err) {
             return (cb(err));
@@ -55,38 +62,19 @@ before(function (cb) {
 });
 
 
-
-///--- Tests only for the memraft...
-
-test('get snapshot', function (t) {
+after(function (cb) {
     var self = this;
-    var oldRaft = self.oldRaft;
-    var snapshotter = oldRaft.snapshotter;
     vasync.pipeline({
-        funcs: [
-            function (_, subcb) {
-                snapshotter.getLatest(function (err, snapshot) {
-                    if (err) {
-                        return (subcb(err));
-                    }
-                    t.deepEqual({
-                        'peerData': [ 'raft-0' ],
-                        'stateMachineData': {
-                            'commitIndex': 0,
-                            'data': undefined
-                        },
-                        'clogData': [
-                            e(0, 0)
-                        ]
-                    }, snapshot);
-                    subcb();
-                });
+        'funcs': [
+            function closeOldLevelDb(_, subcb) {
+                self.oldRaft.clog.close(subcb);
+            },
+            function closeNewLevelDb(_, subcb) {
+                self.newRaft.clog.close(subcb);
             }
+
         ]
     }, function (err) {
-        if (err) {
-            t.fail(err);
-        }
-        t.done();
+        cb(err);
     });
 });
