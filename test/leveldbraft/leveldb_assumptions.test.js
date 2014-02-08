@@ -19,7 +19,7 @@ var vasync = require('vasync');
 
 ///--- Globals
 
-var e = helper.e;
+var e = helper.e();
 var rmrf = helper.rmrf;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),

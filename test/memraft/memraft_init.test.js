@@ -16,6 +16,7 @@ var raftInitTests = require('../share/raft_init_tests.js');
 ///--- Globals
 
 var before = nodeunitPlus.before;
+var createClusterConfig = helper.createClusterConfig;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',
@@ -30,9 +31,9 @@ var LOW_LEADER_TIMEOUT = 2;
 before(function (cb) {
     var self = this;
     memraft.raft({
-        log: LOG,
-        id: 'raft-0',
-        peers: [ 'raft-1', 'raft-2' ]
+        'log': LOG,
+        'id': 'raft-0',
+        'clusterConfig': createClusterConfig([ 'raft-0', 'raft-1', 'raft-2' ])
     }, function (err, r) {
         if (err) {
             return (cb(err));

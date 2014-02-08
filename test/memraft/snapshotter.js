@@ -69,9 +69,6 @@ Snapshotter.prototype.getLatest = function (cb) {
     //TODO: If we want this to work across a network, we're going to have to
     // be smarter about how we package this up.  It's fine for now.
 
-    //Make Peers
-    snapshot.peerData = deepcopy(raft.peers);
-
     //Clone state machine
     snapshot.stateMachineData = raft.stateMachine.snapshot();
 
@@ -106,7 +103,6 @@ Snapshotter.prototype.read = function (snapshot, cb) {
     var stateMachine = raft.stateMachine.from(snapshot.stateMachineData);
     var clog = raft.clog.from(snapshot.clogData, stateMachine);
     setImmediate(cb.bind(null, null, {
-        'peers': snapshot.peerData,
         'stateMachine': stateMachine,
         'clog': clog
     }));

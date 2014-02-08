@@ -9,7 +9,7 @@ var vasync = require('vasync');
 
 ///--- Globals
 
-var entryStream = helper.entryStream;
+var entryStream = helper.entryStream();
 var LOW_LEADER_TIMEOUT = 2;
 
 
@@ -474,12 +474,9 @@ test('two successful appends', function (t) {
                     t.equal('command-2-2', r.stateMachine.data);
                     helper.readClog(r.clog, function (err2, entries) {
                         t.equal(6, entries.length);
-                        t.deepEqual([ 'noop', 'command-1-1', 'command-2-2',
-                                      'command-3-3', 'command-4-3',
-                                      'command-5-3' ],
-                                    entries.map(function (entry) {
-                                        return (entry.command);
-                                    }));
+                        t.deepEqual([ self.e(0, 0), self.e(1, 1), self.e(2, 2),
+                                      self.e(3, 3), self.e(4, 3), self.e(5, 3)
+                                    ], entries);
                         subcb();
                     });
                 });
@@ -520,11 +517,8 @@ test('previously voted in term, update term with append', function (t) {
                     t.equal('command-2-2', r.stateMachine.data);
                     helper.readClog(r.clog, function (err2, entries) {
                         t.equal(5, entries.length);
-                        t.deepEqual([ 'noop', 'command-1-1', 'command-2-2',
-                                      'command-3-3', 'command-4-3' ],
-                                    entries.map(function (entry) {
-                                        return (entry.command);
-                                    }));
+                        t.deepEqual([ self.e(0, 0), self.e(1, 1), self.e(2, 2),
+                                      self.e(3, 3), self.e(4, 3) ], entries);
                         subcb();
                     });
                 });

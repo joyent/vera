@@ -22,24 +22,65 @@ function createLogger(name, outputStream) {
 }
 
 
-function e(index, term) {
-    return ({
-        'index': index,
-        'term': term,
-        'command': index !== 0 ? 'command-' + index + '-' + term : 'noop'
+/**
+ * Helper to create cluster configurations.
+ * string -> { 'current': { '<string>': { 'voting': true } } }
+ * array  -> { 'current': { '<array[0]>': { 'voting': true }, ... } }
+ * object -> { 'current': <object> }
+ *
+ * See: lib/raft.js#filterPeers
+ */
+function createClusterConfig(a) {
+    assert.ok(a);
+
+    var config = { 'current': {} };
+    if ((typeof (a)) === 'string') {
+        config.current[a] = { 'voting': true };
+    } else if ((typeof (a)) === 'object') {
+        if (a instanceof Array) {
+            a.forEach(function (id) {
+                config.current[id] = { 'voting': true };
+            });
+        } else {
+            config.current = a;
+        }
+    }
+
+    return (config);
+}
+
+
+function e(clusterConfig) {
+    return (function eFunc(index, term) {
+        clusterConfig = clusterConfig || {};
+        var cmd = 'command-' + index + '-' + term;
+        if (index === 0) {
+            cmd = {
+                'to': 'raft',
+                'execute': 'configure',
+                'cluster': clusterConfig
+            };
+        }
+        return ({
+            'index': index,
+            'term': term,
+            'command': cmd
+        });
     });
 }
 
 
-function entryStream(a) {
-    assert.equal(0, a.length % 2);
-    var entries = [];
-    for (var i = 0; i < a.length; i += 2) {
-        entries.push(e(a[i], a[i + 1]));
-    }
-    return (lib.memStream(entries));
+function entryStream(clusterConfig) {
+    var ent = e(clusterConfig);
+    return (function entryStreamFunc(a) {
+        assert.equal(0, a.length % 2);
+        var entries = [];
+        for (var i = 0; i < a.length; i += 2) {
+            entries.push(ent(a[i], a[i + 1]));
+        }
+        return (lib.memStream(entries));
+    });
 }
-
 
 function readStream(s, cb) {
     var res = [];
@@ -103,6 +144,7 @@ function rmrf(f, cb) {
 ///--- Exports
 
 module.exports = {
+    'createClusterConfig': createClusterConfig,
     'createLogger': createLogger,
     'e': e,
     'entryStream': entryStream,

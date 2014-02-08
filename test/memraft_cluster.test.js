@@ -27,8 +27,7 @@ function checkInitalRaft(raft, t) {
     assert.number(raft.leaderTimeout);
     t.equal(0, raft.currentTerm());
     t.equal(undefined, raft.votedFor());
-    assert.arrayOfString(raft.peers);
-    t.ok(raft.peers.indexOf(raft.id) !== -1);
+    assert.arrayOfString(raft.filteredPeers);
     t.ok(raft.filteredPeers.indexOf(raft.id) === -1);
     assert.object(raft.clog);
     assert.object(raft.stateMachine);
@@ -459,6 +458,60 @@ test('parallel client requests', function (t) {
                         return (onIndexChange());
                     }
                     c.tick(next);
+                }
+                next();
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err.toString());
+        }
+        t.done();
+    });
+});
+
+
+//TODO: Start here with the next lap for cluster reconfiguration...
+function test2() {}
+test2('add read-only peer, autopromote', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            initCluster(),
+            function clientRequest(_, subcb) {
+                var c = _.cluster;
+                var l = c.getLeader();
+
+                var responseCalled = false;
+                function onResponse(err, res) {
+                    if (err) {
+                        return (subcb(err));
+                    }
+                    responseCalled = true;
+                    console.log(err.name);
+                    subcb();
+                }
+
+                l.clientRequest({
+                    'command': {
+                        'to': 'raft',
+                        'execute': 'addPeer',
+                        'peer': 'raft-3',
+                        'autoPromote': true
+                    }
+                }, onResponse);
+
+                //Tick the state machine until we get a response.
+                var x = 0;
+                function next() {
+                    //Safety net...
+                    if (x++ === 100) {
+                        subcb(new Error('didn\'t complete client request in ' +
+                                        '100 ticks'));
+                    }
+                    if (!responseCalled) {
+                        c.tick(next);
+                    }
                 }
                 next();
             }

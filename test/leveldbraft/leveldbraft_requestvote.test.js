@@ -15,7 +15,7 @@ var raftRequestVoteTests = require('../share/raft_requestvote_tests.js');
 
 var after = nodeunitPlus.after;
 var before = nodeunitPlus.before;
-var e = helper.e;
+var createClusterConfig = helper.createClusterConfig;
 var memStream = lib.memStream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
@@ -31,13 +31,16 @@ var LOW_LEADER_TIMEOUT = 2;
 before(function (cb) {
     var self = this;
 
+    var clusterConfig = createClusterConfig([ 'raft-0', 'raft-1', 'raft-2' ]);
     var opts = {
         'log': LOG,
         'id': 'raft-0',
-        'peers': [ 'raft-1', 'raft-2' ],
+        'clusterConfig': clusterConfig,
         'dbName': 'raft_requestvote_tests_db'
     };
 
+    var e = helper.e(clusterConfig);
+    self.e = e;
     //Need to "naturally" add some log entries, commit to state machines, etc.
     vasync.pipeline({
         funcs: [
@@ -56,10 +59,10 @@ before(function (cb) {
                     'term': 3,
                     'leaderId': 'raft-1',
                     'entries': memStream([
-                        e(0, 0, 'noop'),
-                        e(1, 1, 'one'),
-                        e(2, 2, 'two'),
-                        e(3, 3, 'three')
+                        e(0, 0),
+                        e(1, 1),
+                        e(2, 2),
+                        e(3, 3)
                     ]),
                     'commitIndex': 2
                 }, subcb);

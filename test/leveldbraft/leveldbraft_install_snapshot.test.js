@@ -20,6 +20,7 @@ var raftInstallSnapshotTests =
 
 var after = nodeunitPlus.after;
 var before = nodeunitPlus.before;
+var createClusterConfig = helper.createClusterConfig;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',
@@ -41,7 +42,7 @@ before(function (cb) {
             return ({
                 'log': LOG,
                 'id': p,
-                'peers': [ p ],
+                'clusterConfig': createClusterConfig([ p ]),
                 'dbName': 'raft_install_snapshot_tests_db_' + p
             });
         }),

@@ -27,7 +27,7 @@ function raft(opts, cb) {
     assert.object(opts);
     assert.object(opts.log, 'opts.log');
     assert.string(opts.id, 'opts.id');
-    assert.arrayOfString(opts.peers, 'opts.peers');
+    assert.object(opts.clusterConfig, 'opts.clusterConfig');
     assert.optionalObject(opts.messageBus, 'opts.messageBus');
     assert.optionalString(opts.dbName, 'opts.dbName');
 
@@ -82,7 +82,8 @@ function raft(opts, cb) {
                 _.clog = new LevelDbLog({
                     'log': log,
                     'db': _.db,
-                    'stateMachine': _.stateMachine
+                    'stateMachine': _.stateMachine,
+                    'clusterConfig': opts.clusterConfig
                 });
                 _.clog.on('ready', subcb);
                 _.clog.on('error', subcb);

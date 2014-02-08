@@ -9,7 +9,7 @@ var vasync = require('vasync');
 
 ///--- Globals
 
-var entryStream = helper.entryStream;
+var entryStream = helper.entryStream();
 var LOW_LEADER_TIMEOUT = 2;
 
 

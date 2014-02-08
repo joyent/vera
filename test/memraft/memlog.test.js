@@ -18,8 +18,8 @@ var commandLogTests = require('../share/command_log_tests.js');
 ///--- Globals
 
 var before = nodeunitPlus.before;
-var e = helper.e;
-var entryStream = helper.entryStream;
+var e = helper.e();
+var entryStream = helper.entryStream();
 var test = nodeunitPlus.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
@@ -41,7 +41,9 @@ before(function (cb) {
             },
             function initMemLogHere(_, subcb) {
                 self.clog = new MemLog({ 'log': LOG,
-                                    'stateMachine': self.stateMachine });
+                                         'stateMachine': self.stateMachine,
+                                         'clusterConfig': {}
+                                       });
                 self.clog.on('ready', subcb);
             }
         ]
@@ -116,7 +118,10 @@ test('clone', function (t) {
     vasync.pipeline({
         funcs: [
             function (_, subcb) {
-                t.deepEqual([ e(0, 0) ], cl.snapshot());
+                t.deepEqual({
+                    'clog': [ e(0, 0) ],
+                    'clusterConfigIndex': 0
+                }, cl.snapshot());
                 subcb();
             },
             function (_, subcb) {
@@ -131,11 +136,12 @@ test('clone', function (t) {
                 }, subcb);
             },
             function (_, subcb) {
-                t.deepEqual([
-                    e(0, 0),
-                    e(1, 0),
-                    e(2, 1)
-                ], cl.snapshot());
+                t.deepEqual({
+                    'clog': [ e(0, 0),
+                              e(1, 0),
+                              e(2, 1) ],
+                    'clusterConfigIndex': 0
+                }, cl.snapshot());
                 subcb();
             },
             function (_, subcb) {
@@ -144,11 +150,12 @@ test('clone', function (t) {
                 // not safe to do elsewhere.
                 var clClone = cl.from(cl.snapshot(), sm);
                 clClone.on('ready', function () {
-                    t.deepEqual([
-                        e(0, 0),
-                        e(1, 0),
-                        e(2, 1)
-                    ], clClone.snapshot());
+                    t.deepEqual({
+                        'clog': [ e(0, 0),
+                                  e(1, 0),
+                                  e(2, 1) ],
+                        'clusterConfigIndex': 0
+                    }, clClone.snapshot());
                     t.equal(3, clClone.nextIndex);
                     clClone.append({
                         'commitIndex': 0,
@@ -158,12 +165,13 @@ test('clone', function (t) {
                             3, 1
                         ])
                     }, function () {
-                        t.deepEqual([
-                            e(0, 0),
-                            e(1, 0),
-                            e(2, 1),
-                            e(3, 1)
-                        ], clClone.snapshot());
+                        t.deepEqual({
+                            'clog': [ e(0, 0),
+                                      e(1, 0),
+                                      e(2, 1),
+                                      e(3, 1) ],
+                            'clusterConfigIndex': 0
+                        }, clClone.snapshot());
                         t.equal(4, clClone.nextIndex);
                         subcb();
                     });

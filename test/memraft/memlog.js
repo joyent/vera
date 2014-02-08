@@ -22,6 +22,13 @@ var util = require('util');
  * along on each append, which would have made it confusing with the request
  * commit index.
  *
+ * The MemLog also keeps track of the current cluster configuration.  It does
+ * this by introspecting the stream of commands to the log and picking out the
+ * latest one.  Seems kinda icky, but the raft paper is pretty explicit that
+ * the latest cluster configuration is propagated as a 'special' log entry.
+ * Since this is the only special log entry that causes the log to do something
+ * special, it's inlined heavy-handedly (I know, not a word).
+ *
  * The other two apis (slice and last) are used to get a slice of the log entry
  * and to get the last entry in this log, respectively.
  *
@@ -32,6 +39,7 @@ var util = require('util');
  * which seems silly for an in-memory thing, but it should catch weird aync bugs
  * in the raft class.  That's the hope, anyways.  Also see:
  * http://nodejs.org/api/process.html#process_process_nexttick_callback
+ * http://nodejs.org/api/timers.html#timers_setimmediate_callback_arg
  */
 
 ///--- Functions
@@ -40,14 +48,31 @@ function MemLog(opts) {
     assert.object(opts, 'opts');
     assert.object(opts.log, 'opts.log');
     assert.object(opts.stateMachine, 'opts.stateMachine');
+    assert.optionalObject(opts.clusterConfig, 'opts.clusterConfig');
 
     var self = this;
     self.log = opts.log;
     self.stateMachine = opts.stateMachine;
-    //The Raft paper says that the index should start at one.  Rather than
-    // doing that, a fixed [0] ensures that the consistency check will always
-    // succeed.
-    self.clog = [ { 'term': 0, 'index': 0, 'command': 'noop' } ];
+    //The Raft paper says that the index should start at one.  Rather than doing
+    // that, a fixed [0] with the current cluster configuration ensures that the
+    // consistency check will succeed only if the configuration is present,
+    // either by explicitly passing it in here or installed from a snapshot.
+    // This way, raft instances only start participating if it is bootstrapped
+    // correctly.
+    self.clog = [];
+    if (opts.clusterConfig !== undefined) {
+        self.clog.push({
+            'term': 0,
+            'index': 0,
+            'command': {
+                'to': 'raft',
+                'execute': 'configure',
+                'cluster': opts.clusterConfig
+            }
+        });
+        self.clusterConfigIndex = 0;
+        _refreshClusterConfig.call(self);
+    }
     self.nextIndex = self.clog.length;
     self.ready = false;
 
@@ -59,6 +84,17 @@ function MemLog(opts) {
 
 util.inherits(MemLog, events.EventEmitter);
 module.exports = MemLog;
+
+
+
+///--- Helpers
+
+function _refreshClusterConfig() {
+    var self = this;
+    var config = deepcopy(self.clog[self.clusterConfigIndex].command.cluster);
+    config.clogIndex = self.clusterConfigIndex;
+    self.clusterConfig = config;
+}
 
 
 
@@ -172,9 +208,26 @@ MemLog.prototype.append = function (opts, cb) {
                     }, message);
                     return (cb(new error.InternalError(message)));
                 }
+
+                //Move the pointer back for cluster configuration
+                while (self.clusterConfigIndex > e.index) {
+                    self.clusterConfigIndex = self.clusterConfig.prevClogIndex;
+                    _refreshClusterConfig(self);
+                }
+
                 self.clog.length = e.index;
             }
+
             self.clog[e.index] = e;
+
+            //Move the cluster configuration forward if there's a new config...
+            if ((typeof (e.command)) === 'Object' &&
+                e.command.to === 'raft' &&
+                e.command.execute === 'configure' &&
+                e.index > self.clusterConfigIndex) {
+                self.clusterConfigIndex = e.index;
+                _refreshClusterConfig(self);
+            }
         }
 
         self.nextIndex = self.clog.length;
@@ -226,7 +279,10 @@ MemLog.prototype.last = function () {
 
 MemLog.prototype.snapshot = function () {
     var self = this;
-    return (deepcopy(self.clog));
+    return ({
+        'clog': deepcopy(self.clog),
+        'clusterConfigIndex': self.clusterConfigIndex
+    });
 };
 
 
@@ -236,8 +292,10 @@ MemLog.prototype.from = function (snapshot, stateMachine) {
 
     var self = this;
     var ml = new MemLog({ log: self.log, stateMachine: stateMachine });
-    ml.clog = snapshot;
+    ml.clog = snapshot.clog;
     ml.nextIndex = ml.clog.length;
+    ml.clusterConfigIndex = snapshot.clusterConfigIndex;
+    _refreshClusterConfig.call(ml);
     return (ml);
 };
 

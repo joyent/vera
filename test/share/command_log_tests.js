@@ -9,8 +9,8 @@ var vasync = require('vasync');
 
 ///--- Globals
 
-var e = helper.e;
-var entryStream = helper.entryStream;
+var e = helper.e();
+var entryStream = helper.entryStream();
 var memStream = lib.memStream;
 var readClog = helper.readClog;
 var readStream = helper.readStream;
@@ -757,3 +757,8 @@ test('commit index later than last entry', function (t) {
         t.done();
     });
 });
+
+
+//test cluster reconfiguration pickup at beginning, middle and end
+//test cluster reconfiguration truncation at front, middle, first and right
+// before truncated section

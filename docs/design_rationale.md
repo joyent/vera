@@ -562,6 +562,23 @@ snapshot is correct, there's no reason to try and muck with the log or the state
 machine.  It seems much simpler just to discard the log since the state machine
 must be discarded.
 
+## Command at index 0 is the cluster configuration?
+
+As stated elsewhere, raft stores the cluster configuration in the log as
+"special" log entries.  Storing the initial configuration at entry 0 serves
+several purposes:
+
+1. Serves as the initial consistency check so that there doesn't need to be a
+special logic branch for the first entry to arrive.
+2. Serves to keep new raft instances *out* of the cluster.  If a new instance
+isn't bootstrapped with a configuration, it can't accept append entries
+requests.  The only way for a raft instance to come up cleanly is if (1) it is
+told it is the first raft instance in a new cluster, (2) it is bootstrapped from
+a snapshot (the desireable thing to happen for new cluster members) or (3) an
+operator hands it an initial configuration (this seems dangerous, so we want to
+make it as hard as possible).
+3. Serves as the first, well-known place for the inital cluster configuration.
+
 ## What does a machine need to do when it starts up?
 
 When a new machine comes up, it should know only one thing: Whether it is the

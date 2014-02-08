@@ -19,6 +19,7 @@ var raftInitTests = require('../share/raft_init_tests.js');
 
 var after = nodeunitPlus.after;
 var before = nodeunitPlus.before;
+var createClusterConfig = helper.createClusterConfig;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',
@@ -36,7 +37,7 @@ before(function (cb) {
     leveldbraft.raft({
         'log': LOG,
         'id': 'raft-0',
-        'peers': [ 'raft-1', 'raft-2' ],
+        'clusterConfig': createClusterConfig([ 'raft-0', 'raft-1', 'raft-2' ]),
         'dbName': 'raft_init_tests_db'
     }, function (err, raft) {
         self.raft = raft;

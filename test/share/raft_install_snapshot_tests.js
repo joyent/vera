@@ -9,7 +9,8 @@ var vasync = require('vasync');
 
 ///--- Globals
 
-var e = helper.e;
+var createClusterConfig = helper.createClusterConfig;
+var e = helper.e();
 
 
 
@@ -57,7 +58,7 @@ test('apply snapshot to new', function (t) {
                 //This is a little wonky.  In "real life" the entry for newRaft
                 // would have been a part of r0's peer list.  But here we're
                 // just checking that it copies over the peer list.
-                t.deepEqual([ 'raft-0' ], newRaft.peers);
+                t.deepEqual([ 'raft-0' ], newRaft.filteredPeers);
                 t.equal(4, newRaft.stateMachine.commitIndex);
                 t.equal('bang', newRaft.stateMachine.data);
                 t.ok(Object.keys(newRaft.outstandingMessages).length === 0);
@@ -66,7 +67,11 @@ test('apply snapshot to new', function (t) {
                         return (subcb(err));
                     }
                     t.equals(5, entries.length);
-                    t.deepEqual([ 'noop', 'foo', 'bar', 'baz', 'bang' ],
+                    //This is a bit wonky... but it is what it should be.
+                    var firstEntryCommand = helper.e(createClusterConfig(
+                        'raft-0'))(0, 0).command;
+                    t.deepEqual([ firstEntryCommand,
+                                  'foo', 'bar', 'baz', 'bang' ],
                                 entries.map(function (x) {
                                     return (x.command);
                                 }));

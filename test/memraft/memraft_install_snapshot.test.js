@@ -14,8 +14,9 @@ var raftInstallSnapshotTests =
 ///--- Globals
 
 var before = nodeunitPlus.before;
-var e = helper.e;
-var entryStream = helper.entryStream;
+var createClusterConfig = helper.createClusterConfig;
+var e = helper.e();
+var entryStream = helper.entryStream();
 var test = nodeunitPlus.test;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
@@ -35,7 +36,7 @@ before(function (cb) {
             return ({
                 'log': LOG,
                 'id': p,
-                'peers': [ p ]
+                'clusterConfig': createClusterConfig([ p ])
             });
         }),
         'func': memraft.raft
@@ -70,14 +71,16 @@ test('get snapshot', function (t) {
                         return (subcb(err));
                     }
                     t.deepEqual({
-                        'peerData': [ 'raft-0' ],
                         'stateMachineData': {
                             'commitIndex': 0,
                             'data': undefined
                         },
-                        'clogData': [
-                            e(0, 0)
-                        ]
+                        'clogData': {
+                            'clog': [
+                                helper.e(createClusterConfig('raft-0'))(0, 0)
+                            ],
+                            'clusterConfigIndex': 0
+                        }
                     }, snapshot);
                     subcb();
                 });

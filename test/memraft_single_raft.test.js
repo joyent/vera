@@ -26,8 +26,8 @@ function checkInitalRaft(raft, t) {
     assert.number(raft.leaderTimeout);
     t.equal(0, raft.currentTerm());
     t.equal(undefined, raft.votedFor());
-    assert.arrayOfString(raft.peers);
-    t.ok(raft.peers.indexOf(raft.id) !== -1);
+    //TODO: This will need to change with cluster reconfigurations
+    assert.arrayOfString(raft.filteredPeers);
     t.ok(raft.filteredPeers.indexOf(raft.id) === -1);
     assert.object(raft.clog);
     assert.object(raft.stateMachine);

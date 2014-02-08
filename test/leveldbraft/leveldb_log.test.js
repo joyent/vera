@@ -59,7 +59,8 @@ before(function (cb) {
                 self.clog = new LevelDbLog({
                     'log': LOG,
                     'location': DB_FILE,
-                    'stateMachine': self.stateMachine
+                    'stateMachine': self.stateMachine,
+                    'clusterConfig': {}
                 });
                 self.clog.on('ready', subcb);
                 self.clog.on('error', subcb);
@@ -87,6 +88,7 @@ after(function (cb) {
 
 
 ///--- Level-db only tests
+
 
 test('verify lastLogIndex in db', function (t) {
     var self = this;

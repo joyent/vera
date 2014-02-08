@@ -1,6 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var assert = require('assert-plus');
+var helper = require('../helper.js');
 var MemLog = require('./memlog');
 var MemProps = require('./memprops');
 var MessageBus = require('../messagebus');
@@ -11,6 +12,11 @@ var StateMachine = require('./statemachine');
 var vasync = require('vasync');
 
 
+///--- Globals
+
+var createClusterConfig = helper.createClusterConfig;
+
+
 
 ///--- Funcs
 
@@ -18,7 +24,7 @@ function raft(opts, cb) {
     assert.object(opts);
     assert.object(opts.log, 'opts.log');
     assert.string(opts.id, 'opts.id');
-    assert.arrayOfString(opts.peers, 'opts.peers');
+    assert.object(opts.clusterConfig, 'opts.clusterConfig');
     assert.optionalObject(opts.messageBus, 'opts.messageBus');
 
     var log = opts.log;
@@ -41,7 +47,8 @@ function raft(opts, cb) {
             },
             function initMemLog(_, subcb) {
                 _.clog = new MemLog({ 'log': log,
-                                      'stateMachine': _.stateMachine });
+                                      'stateMachine': _.stateMachine,
+                                      'clusterConfig': opts.clusterConfig });
                 _.clog.on('ready', subcb);
             },
             function initMemProps(_, subcb) {
@@ -188,11 +195,12 @@ function cluster(opts, cb) {
                     }
                 }
 
+                var clusterConfig = createClusterConfig(peers);
                 peers.forEach(function (p) {
                     var o = {
                         'log': log,
                         'id': p,
-                        'peers': peers,
+                        'clusterConfig': clusterConfig,
                         'messageBus': c.messageBus
                     };
                     raft(o, function (err, peer) {
