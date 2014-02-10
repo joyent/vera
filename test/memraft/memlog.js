@@ -228,6 +228,7 @@ MemLog.prototype.append = function (opts, cb) {
                 if ((typeof (e.command)) === 'object' &&
                     e.command.to === 'raft' &&
                     e.command.execute === 'configure' &&
+                    e.command.cluster &&
                     e.index > self.clusterConfigIndex) {
                     e.command.cluster.prevClogIndex = self.clusterConfigIndex;
                     self.clusterConfigIndex = e.index;

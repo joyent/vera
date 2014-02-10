@@ -168,3 +168,14 @@ module.exports = {
     'readStream': readStream,
     'rmrf': rmrf
 };
+
+
+///--- Hack
+
+/**
+ * See: https://github.com/caolan/nodeunit/issues/244
+ */
+process.on('uncaughtException', function (err) {
+    console.error(err.stack);
+    process.exit(1);
+});
