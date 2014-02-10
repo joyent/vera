@@ -11,6 +11,8 @@ var vasync = require('vasync');
 
 var e = helper.e();
 var entryStream = helper.entryStream();
+var configEntry = helper.configEntry;
+var createClusterConfig = helper.createClusterConfig;
 var memStream = lib.memStream;
 var readClog = helper.readClog;
 var readStream = helper.readStream;
@@ -759,6 +761,589 @@ test('commit index later than last entry', function (t) {
 });
 
 
-//test cluster reconfiguration pickup at beginning, middle and end
-//test cluster reconfiguration truncation at front, middle, first and right
-// before truncated section
+///--- Cluster Config Tests
+
+test('reconfigure at beginning', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            var cc = createClusterConfig('raft-0');
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    configEntry(1, 1, cc),
+                    e(2, 1),
+                    e(3, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(4, self.clog.nextIndex);
+            t.deepEqual(e(3, 1), self.clog.last());
+            t.equal(1, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig('raft-0', 0);
+            cc.clogIndex = 1;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 4);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(configEntry(1, 1, createClusterConfig('raft-0', 0)),
+                            clog[1]);
+                t.deepEqual(e(2, 1), clog[2]);
+                t.deepEqual(e(3, 1), clog[3]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('reconfigure in middle', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            var cc = createClusterConfig('raft-0');
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    e(1, 1),
+                    configEntry(2, 1, cc),
+                    e(3, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(4, self.clog.nextIndex);
+            t.deepEqual(e(3, 1), self.clog.last());
+            t.equal(2, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig('raft-0', 0);
+            cc.clogIndex = 2;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 4);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(e(1, 1), clog[1]);
+                t.deepEqual(configEntry(2, 1, createClusterConfig('raft-0', 0)),
+                            clog[2]);
+                t.deepEqual(e(3, 1), clog[3]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('reconfigure at end', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            var cc = createClusterConfig('raft-0');
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    e(1, 1),
+                    e(2, 1),
+                    configEntry(3, 1, cc)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(4, self.clog.nextIndex);
+            t.deepEqual(configEntry(3, 1, createClusterConfig('raft-0', 0)),
+                        self.clog.last());
+            t.equal(3, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig('raft-0', 0);
+            cc.clogIndex = 3;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 4);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(e(1, 1), clog[1]);
+                t.deepEqual(e(2, 1), clog[2]);
+                t.deepEqual(configEntry(3, 1, createClusterConfig('raft-0', 0)),
+                            clog[3]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('many reconfigures', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    configEntry(1, 1, createClusterConfig('raft-0')),
+                    configEntry(2, 1, createClusterConfig('raft-1')),
+                    e(3, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(3, 1),
+                    configEntry(4, 1, createClusterConfig('raft-2'))
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    configEntry(4, 1, createClusterConfig('raft-2')),
+                    configEntry(5, 1, createClusterConfig('raft-3')),
+                    e(6, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(7, self.clog.nextIndex);
+            t.deepEqual(e(6, 1), self.clog.last());
+            t.equal(5, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig('raft-3', 4);
+            cc.clogIndex = 5;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 7);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(configEntry(1, 1, createClusterConfig('raft-0', 0)),
+                            clog[1]);
+                t.deepEqual(configEntry(2, 1, createClusterConfig('raft-1', 1)),
+                            clog[2]);
+                t.deepEqual(e(3, 1), clog[3]);
+                t.deepEqual(configEntry(4, 1, createClusterConfig('raft-2', 2)),
+                            clog[4]);
+                t.deepEqual(configEntry(5, 1, createClusterConfig('raft-3', 4)),
+                            clog[5]);
+                t.deepEqual(e(6, 1), clog[6]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+//Tests that a later reconfigure won't get overwritten by an append entries
+// request whose set of entries occurs before
+test('earlier config doesn\'t overwrite later', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    e(1, 1),
+                    configEntry(2, 1, createClusterConfig('raft-0')),
+                    e(3, 1),
+                    configEntry(4, 1, createClusterConfig('raft-1')),
+                    e(5, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(1, 1),
+                    configEntry(2, 1, createClusterConfig('raft-0')),
+                    e(3, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(6, self.clog.nextIndex);
+            t.deepEqual(e(5, 1), self.clog.last());
+            t.equal(4, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig('raft-1', 2);
+            cc.clogIndex = 4;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 6);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(e(1, 1), clog[1]);
+                t.deepEqual(configEntry(2, 1, createClusterConfig('raft-0', 0)),
+                            clog[2]);
+                t.deepEqual(e(3, 1), clog[3]);
+                t.deepEqual(configEntry(4, 1, createClusterConfig('raft-1', 2)),
+                            clog[4]);
+                t.deepEqual(e(5, 1), clog[5]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('truncate before config', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            var cc = createClusterConfig('raft-0');
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    e(1, 1),
+                    configEntry(2, 1, cc),
+                    e(3, 1),
+                    e(4, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 2,
+                'entries': memStream([
+                    e(0, 0),
+                    e(1, 2)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(2, self.clog.nextIndex);
+            t.deepEqual(e(1, 2), self.clog.last());
+            t.equal(0, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig();
+            cc.clogIndex = 0;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 2);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(e(1, 2), clog[1]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('truncate at latest config', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            var cc = createClusterConfig('raft-0');
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    e(1, 1),
+                    configEntry(2, 1, cc),
+                    e(3, 1),
+                    e(4, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 2,
+                'entries': memStream([
+                    e(1, 1),
+                    e(2, 2)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(3, self.clog.nextIndex);
+            t.deepEqual(e(2, 2), self.clog.last());
+            t.equal(0, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig();
+            cc.clogIndex = 0;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 3);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(e(1, 1), clog[1]);
+                t.deepEqual(e(2, 2), clog[2]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('truncate using config as check', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            var cc = createClusterConfig('raft-0');
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    e(1, 1),
+                    configEntry(2, 1, cc),
+                    e(3, 1),
+                    e(4, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            var cc = createClusterConfig('raft-0');
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 2,
+                'entries': memStream([
+                    configEntry(2, 1, cc),
+                    e(3, 2)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(4, self.clog.nextIndex);
+            t.deepEqual(e(3, 2), self.clog.last());
+            t.equal(2, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig('raft-0', 0);
+            cc.clogIndex = 2;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 4);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(e(1, 1), clog[1]);
+                t.deepEqual(configEntry(2, 1, createClusterConfig('raft-0', 0)),
+                            clog[2]);
+                t.deepEqual(e(3, 2), clog[3]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
+test('truncate many configs', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 1,
+                'entries': memStream([
+                    e(0, 0),
+                    configEntry(1, 1, createClusterConfig('raft-0')),
+                    configEntry(2, 1, createClusterConfig('raft-1')),
+                    configEntry(3, 1, createClusterConfig('raft-2')),
+                    configEntry(4, 1, createClusterConfig('raft-3')),
+                    configEntry(5, 1, createClusterConfig('raft-4')),
+                    configEntry(6, 1, createClusterConfig('raft-5')),
+                    configEntry(7, 1, createClusterConfig('raft-6')),
+                    configEntry(8, 1, createClusterConfig('raft-7')),
+                    e(9, 1)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 2,
+                'entries': memStream([
+                    configEntry(3, 1, createClusterConfig('raft-2')),
+                    e(4, 2)
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(5, self.clog.nextIndex);
+            t.deepEqual(e(4, 2), self.clog.last());
+            t.equal(3, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig('raft-2', 2);
+            cc.clogIndex = 3;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 5);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(configEntry(1, 1, createClusterConfig('raft-0', 0)),
+                            clog[1]);
+                t.deepEqual(configEntry(2, 1, createClusterConfig('raft-1', 1)),
+                            clog[2]);
+                t.deepEqual(configEntry(3, 1, createClusterConfig('raft-2', 2)),
+                            clog[3]);
+                t.deepEqual(e(4, 2), clog[4]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});

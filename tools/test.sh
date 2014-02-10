@@ -1,10 +1,14 @@
 #!/bin/bash
 ###############################################################################
 # Copyright 2013 Joyent, Inc., All rights reserved.
-# Runs javascriptlint and jsstyle
+# Runs nodeunit for each *.test.js
 ###############################################################################
 
 set -o pipefail
-set -o xtrace
 
-find test/ -name '*.test.js' | xargs -n 1 ./node_modules/nodeunit/bin/nodeunit
+for t in $(find test -name '*.test.js'); do
+    ./node_modules/nodeunit/bin/nodeunit $t
+    if [[ $? -ne 0 ]]; then
+        exit
+    fi
+done

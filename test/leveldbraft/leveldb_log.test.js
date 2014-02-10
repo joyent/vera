@@ -14,7 +14,8 @@ var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
 // All the actual tests are here...
-var commandLogTests = require('../share/command_log_tests.js');
+//START HERE
+//var commandLogTests = require('../share/command_log_tests.js');
 
 
 
@@ -60,7 +61,7 @@ before(function (cb) {
                     'log': LOG,
                     'location': DB_FILE,
                     'stateMachine': self.stateMachine,
-                    'clusterConfig': {}
+                    'clusterConfig': { 'current': {} }
                 });
                 self.clog.on('ready', subcb);
                 self.clog.on('error', subcb);

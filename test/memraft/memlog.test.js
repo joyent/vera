@@ -42,7 +42,7 @@ before(function (cb) {
             function initMemLogHere(_, subcb) {
                 self.clog = new MemLog({ 'log': LOG,
                                          'stateMachine': self.stateMachine,
-                                         'clusterConfig': {}
+                                         'clusterConfig': { 'current': {} }
                                        });
                 self.clog.on('ready', subcb);
             }

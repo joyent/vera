@@ -40,7 +40,7 @@ test('e', function (t) {
     t.deepEqual({
         'to': 'raft',
         'execute': 'configure',
-        'cluster': {}
+        'cluster': { 'current': {} }
     }, e1.command);
 
     var e2 = e(1, 2);
@@ -67,7 +67,7 @@ test('entryStream', function (t) {
                 'term': 0, 'command': {
                     'to': 'raft',
                     'execute': 'configure',
-                    'cluster': {}
+                    'cluster': { 'current': {} }
                 }
             },
             { 'index': 1, 'term': 2, 'command': 'command-1-2'},

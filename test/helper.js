@@ -30,9 +30,7 @@ function createLogger(name, outputStream) {
  *
  * See: lib/raft.js#filterPeers
  */
-function createClusterConfig(a) {
-    assert.ok(a);
-
+function createClusterConfig(a, p) {
     var config = { 'current': {} };
     if ((typeof (a)) === 'string') {
         config.current[a] = { 'voting': true };
@@ -46,13 +44,30 @@ function createClusterConfig(a) {
         }
     }
 
+    if (p !== undefined) {
+        config.prevClogIndex = p;
+    }
+
     return (config);
 }
 
 
+function configEntry(index, term, clusterConfig) {
+    return ({
+        'index': index,
+        'term': term,
+        'command': {
+            'to': 'raft',
+            'execute': 'configure',
+            'cluster': clusterConfig
+        }
+    });
+}
+
+
 function e(clusterConfig) {
+    clusterConfig = clusterConfig || createClusterConfig();
     return (function eFunc(index, term) {
-        clusterConfig = clusterConfig || {};
         var cmd = 'command-' + index + '-' + term;
         if (index === 0) {
             cmd = {
@@ -144,6 +159,7 @@ function rmrf(f, cb) {
 ///--- Exports
 
 module.exports = {
+    'configEntry': configEntry,
     'createClusterConfig': createClusterConfig,
     'createLogger': createLogger,
     'e': e,

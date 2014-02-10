@@ -193,6 +193,7 @@ MemLog.prototype.append = function (opts, cb) {
         for (i = 1; i < entries.length; ++i) {
             e = entries[i];
             //Truncate if necessary...
+            var truncated = false;
             if (self.clog[e.index] && self.clog[e.index].term != e.term) {
                 //Up until now, all the records should have been read-and-verify
                 // only.  Since we're at the point where we'll actually do
@@ -210,23 +211,28 @@ MemLog.prototype.append = function (opts, cb) {
                 }
 
                 //Move the pointer back for cluster configuration
-                while (self.clusterConfigIndex > e.index) {
+                while (self.clusterConfigIndex >= e.index) {
                     self.clusterConfigIndex = self.clusterConfig.prevClogIndex;
-                    _refreshClusterConfig(self);
+                    _refreshClusterConfig.call(self);
                 }
 
                 self.clog.length = e.index;
+                truncated = true;
             }
 
-            self.clog[e.index] = e;
+            if (!self.clog[e.index] || truncated) {
+                self.clog[e.index] = e;
 
-            //Move the cluster configuration forward if there's a new config...
-            if ((typeof (e.command)) === 'Object' &&
-                e.command.to === 'raft' &&
-                e.command.execute === 'configure' &&
-                e.index > self.clusterConfigIndex) {
-                self.clusterConfigIndex = e.index;
-                _refreshClusterConfig(self);
+                //Move the cluster configuration forward if there's a new
+                // config...
+                if ((typeof (e.command)) === 'object' &&
+                    e.command.to === 'raft' &&
+                    e.command.execute === 'configure' &&
+                    e.index > self.clusterConfigIndex) {
+                    e.command.cluster.prevClogIndex = self.clusterConfigIndex;
+                    self.clusterConfigIndex = e.index;
+                    _refreshClusterConfig.call(self);
+                }
             }
         }
 
