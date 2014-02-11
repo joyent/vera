@@ -58,7 +58,7 @@ test('apply snapshot to new', function (t) {
                 //This is a little wonky.  In "real life" the entry for newRaft
                 // would have been a part of r0's peer list.  But here we're
                 // just checking that it copies over the peer list.
-                t.deepEqual([ 'raft-0' ], newRaft.filteredPeers);
+                t.deepEqual([ 'raft-0' ], newRaft.cluster.peerIds());
                 t.equal(4, newRaft.stateMachine.commitIndex);
                 t.equal('bang', newRaft.stateMachine.data);
                 t.ok(Object.keys(newRaft.outstandingMessages).length === 0);

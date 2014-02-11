@@ -27,8 +27,8 @@ function checkInitalRaft(raft, t) {
     assert.number(raft.leaderTimeout);
     t.equal(0, raft.currentTerm());
     t.equal(undefined, raft.votedFor());
-    assert.arrayOfString(raft.filteredPeers);
-    t.ok(raft.filteredPeers.indexOf(raft.id) === -1);
+    assert.arrayOfString(raft.cluster.peerIds());
+    t.ok(raft.cluster.peerIds().indexOf(raft.id) === -1);
     assert.object(raft.clog);
     assert.object(raft.stateMachine);
     assert.object(raft.messageBus);
@@ -198,7 +198,7 @@ test('elect initial leader', function (t) {
                 t.equal(2, Object.keys(r0.outstandingMessages).length);
                 t.equal('leader', r0.state);
 
-                r0.filteredPeers.forEach(function (p) {
+                r0.cluster.peerIds().forEach(function (p) {
                     t.equal(1, r0.peerNextIndexes[p]);
 
                     var peer = c.peers[p];
@@ -223,7 +223,7 @@ test('elect initial leader', function (t) {
 
                 t.equal(0, Object.keys(c.messageBus.messages).length);
 
-                r0.filteredPeers.forEach(function (p) {
+                r0.cluster.peerIds().forEach(function (p) {
                     t.equal(1, r0.peerNextIndexes[p]);
 
                     var peer = c.peers[p];
@@ -287,7 +287,7 @@ test('one client request', function (t) {
                     t.equal(1, l.stateMachine.commitIndex);
 
                     //Check the peers (just append to the log)
-                    l.filteredPeers.forEach(function (p) {
+                    l.cluster.peerIds().forEach(function (p) {
                         var peer = c.peers[p];
                         t.equal(2, peer.clog.nextIndex);
                         t.equal('foo', peer.clog.clog[1].command);
@@ -317,11 +317,11 @@ test('one client request', function (t) {
             function propagateCommitIndex(_, subcb) {
                 var c = _.cluster;
                 var l = c.getLeader();
-                var apeer = c.peers[l.filteredPeers[0]];
+                var apeer = c.peers[l.cluster.peerIds()[0]];
 
                 function onIndexChange() {
                     //Check Peers
-                    l.filteredPeers.forEach(function (p) {
+                    l.cluster.peerIds().forEach(function (p) {
                         var peer = c.peers[p];
                         t.equal(2, peer.clog.nextIndex);
                         t.equal('foo', peer.clog.clog[1].command);
@@ -377,7 +377,7 @@ test('parallel client requests', function (t) {
                         t.equal(2, l.stateMachine.commitIndex);
 
                         //Check the peers (just append to the log)
-                        l.filteredPeers.forEach(function (p) {
+                        l.cluster.peerIds().forEach(function (p) {
                             var peer = c.peers[p];
                             t.equal(3, peer.clog.nextIndex);
                             t.equal('foo', peer.clog.clog[1].command);
@@ -435,11 +435,11 @@ test('parallel client requests', function (t) {
             function propagateCommitIndex(_, subcb) {
                 var c = _.cluster;
                 var l = c.getLeader();
-                var apeer = c.peers[l.filteredPeers[0]];
+                var apeer = c.peers[l.cluster.peerIds()[0]];
 
                 function onIndexChange() {
                     //Check Peers
-                    l.filteredPeers.forEach(function (p) {
+                    l.cluster.peerIds().forEach(function (p) {
                         var peer = c.peers[p];
                         t.equal(3, peer.clog.nextIndex);
                         t.equal('bar', peer.stateMachine.data);
