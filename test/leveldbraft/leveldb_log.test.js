@@ -14,8 +14,7 @@ var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
 // All the actual tests are here...
-//START HERE
-//var commandLogTests = require('../share/command_log_tests.js');
+var commandLogTests = require('../share/command_log_tests.js');
 
 
 
