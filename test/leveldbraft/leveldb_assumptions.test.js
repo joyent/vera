@@ -40,15 +40,6 @@ function le(x) {
 }
 
 
-function dumpLog(db, cb) {
-    db.createReadStream()
-        .on('data', function (d) {
-            //console.log(JSON.stringify(d, null, 0));
-        }).on('close', cb);
-}
-
-
-
 ///--- Tests
 
 test('test assumptions', function (t) {
@@ -187,9 +178,6 @@ test('test assumptions', function (t) {
                     cb();
                 });
             },
-            function dump(_, cb) {
-                dumpLog(db, cb);
-            },
             function close(_, cb) {
                 db.close(cb);
             },
@@ -259,9 +247,6 @@ test('types in a json object', function (t) {
                             Object.prototype.toString.call(v.buf));
                     cb();
                 });
-            },
-            function dump(_, cb) {
-                dumpLog(db, cb);
             },
             function close(_, cb) {
                 db.close(cb);
