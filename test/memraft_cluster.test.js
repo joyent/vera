@@ -533,6 +533,13 @@ test('add read-only peer, autopromote', function (t) {
                 t.deepEqual(allIds, _.cluster.peers['raft-1'].cluster.allIds);
                 t.deepEqual(allIds, _.cluster.peers['raft-2'].cluster.allIds);
                 t.deepEqual(allIds, _.raft3.cluster.allIds);
+                t.deepEqual(allIds,
+                            _.cluster.peers['raft-0'].cluster.votingIds);
+                t.deepEqual(allIds,
+                            _.cluster.peers['raft-1'].cluster.votingIds);
+                t.deepEqual(allIds,
+                            _.cluster.peers['raft-2'].cluster.votingIds);
+                t.deepEqual(allIds, _.raft3.cluster.votingIds);
                 subcb();
             }
         ]

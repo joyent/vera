@@ -19,6 +19,7 @@ test('empty config', function (t) {
     t.equal(c.clogIndex, 0);
     t.deepEqual([], c.allIds);
     t.deepEqual([], c.allPeerIds);
+    t.deepEqual([], c.votingIds);
     t.deepEqual([], c.votingPeerIds);
     t.ok(c.isMajority([ 'raft-0' ]) === false);
     t.done();
@@ -41,6 +42,7 @@ test('one node current', function (t) {
     t.equal(c.clogIndex, 0);
     t.deepEqual([ 'raft-0' ], c.allIds);
     t.deepEqual([], c.allPeerIds);
+    t.deepEqual([ 'raft-0' ], c.votingIds);
     t.deepEqual([], c.votingPeerIds);
     t.ok(c.isMajority([ 'raft-0' ]));
     t.done();
@@ -69,6 +71,7 @@ test('three node current config', function (t) {
     t.equal(c.clogIndex, 0);
     t.deepEqual([ 'raft-0', 'raft-1', 'raft-2' ], c.allIds);
     t.deepEqual([ 'raft-1', 'raft-2' ], c.allPeerIds);
+    t.deepEqual([ 'raft-0', 'raft-1', 'raft-2' ], c.votingIds);
     t.deepEqual([ 'raft-1', 'raft-2' ], c.votingPeerIds);
     //Time to get pedantic again.
     t.ok(c.isMajority([ 'raft-0' ]) === false);
@@ -108,6 +111,7 @@ test('nonvoting config', function (t) {
     t.equal(c.clogIndex, 0);
     t.deepEqual([ 'raft-0', 'raft-1', 'raft-2', 'raft-3' ], c.allIds);
     t.deepEqual([ 'raft-1', 'raft-2', 'raft-3' ], c.allPeerIds);
+    t.deepEqual([ 'raft-0', 'raft-3' ], c.votingIds);
     t.deepEqual([ 'raft-3' ], c.votingPeerIds);
     //Time to get pedantic again.
     t.ok(c.isMajority([ 'raft-0' ]) === false);
@@ -136,6 +140,7 @@ test('empty reconfiguration', function (t) {
     t.equal(c.clogIndex, 0);
     t.deepEqual([], c.allIds);
     t.deepEqual([], c.allPeerIds);
+    t.deepEqual([], c.votingIds);
     t.deepEqual([], c.votingPeerIds);
     t.ok(c.isMajority([ 'raft-0' ]) === false);
     t.done();
@@ -175,6 +180,8 @@ test('reconfiguration', function (t) {
     t.equal(c.clogIndex, 0);
     t.deepEqual([ 'raft-0', 'raft-1', 'raft-2', 'raft-3', 'raft-4' ], c.allIds);
     t.deepEqual([ 'raft-1', 'raft-2', 'raft-3', 'raft-4' ], c.allPeerIds);
+    t.deepEqual([ 'raft-0', 'raft-1', 'raft-2', 'raft-3', 'raft-4' ],
+                c.votingIds);
     t.deepEqual([ 'raft-1', 'raft-2', 'raft-3', 'raft-4' ], c.votingPeerIds);
     //Time to get pedantic again.
     t.ok(c.isMajority([ 'raft-0' ]) === false);
@@ -227,6 +234,7 @@ test('reconfiguration and nonvoting', function (t) {
     t.equal(c.clogIndex, 0);
     t.deepEqual([ 'raft-0', 'raft-1', 'raft-2', 'raft-3', 'raft-4' ], c.allIds);
     t.deepEqual([ 'raft-1', 'raft-2', 'raft-3', 'raft-4' ], c.allPeerIds);
+    t.deepEqual([ 'raft-0', 'raft-3', 'raft-4' ], c.votingIds);
     t.deepEqual([ 'raft-3', 'raft-4' ], c.votingPeerIds);
     //Time to get pedantic again.
     t.ok(c.isMajority([ 'raft-0' ]) === false);
