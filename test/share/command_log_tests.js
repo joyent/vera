@@ -763,6 +763,62 @@ test('commit index later than last entry', function (t) {
 
 ///--- Cluster Config Tests
 
+test('append reconfiguration', function (t) {
+    var self = this;
+    var funcs = [
+        function (_, subcb) {
+            //Verify initial config state.
+            t.equal(0, self.clog.clusterConfigIndex);
+            t.deepEqual({
+                'clogIndex': 0,
+                'current': {}
+            }, self.clog.clusterConfig);
+            subcb();
+        },
+        function (_, subcb) {
+            self.clog.append({
+                'commitIndex': 0,
+                'term': 0,
+                'entries': memStream([
+                    { 'term': 1, //No index, so this is an append.
+                      'command': {
+                          'to': 'raft',
+                          'execute': 'configure',
+                          'cluster': createClusterConfig('raft-0', 0)
+                      }
+                    }
+                ])
+            }, subcb);
+        },
+        function (_, subcb) {
+            t.equal(2, self.clog.nextIndex);
+            t.deepEqual(configEntry(1, 1, createClusterConfig('raft-0', 0)),
+                        self.clog.last());
+            t.equal(1, self.clog.clusterConfigIndex);
+            var cc = createClusterConfig('raft-0', 0);
+            cc.clogIndex = 1;
+            t.deepEqual(cc, self.clog.clusterConfig);
+            readClog(self.clog, function (err, clog) {
+                t.ok(clog.length === 2);
+                t.deepEqual(e(0, 0), clog[0]);
+                t.deepEqual(configEntry(1, 1, createClusterConfig('raft-0', 0)),
+                            clog[1]);
+                subcb();
+            });
+        }
+    ];
+    vasync.pipeline({
+        funcs: funcs,
+        arg: {}
+    }, function (err) {
+        if (err) {
+            t.fail(err);
+        }
+        t.done();
+    });
+});
+
+
 test('reconfigure at beginning', function (t) {
     var self = this;
     var funcs = [

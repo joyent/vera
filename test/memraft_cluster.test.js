@@ -2,6 +2,7 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
+var helper = require('./helper');
 var memraft = require('./memraft');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
@@ -471,13 +472,25 @@ test('parallel client requests', function (t) {
 });
 
 
-//TODO: Start here (again)
-function test2() {}
-test2('add read-only peer, autopromote', function (t) {
+test('add read-only peer, autopromote', function (t) {
     vasync.pipeline({
         arg: {},
         funcs: [
             initCluster(),
+            function createRaft3(_, subcb) {
+                var c = _.cluster;
+                var clusterConfig = helper.createClusterConfig(
+                    [ 'raft-0', 'raft-1', 'raft-2' ]);
+                memraft.raft({
+                    'log': LOG,
+                    'id': 'raft-3',
+                    'clusterConfig': clusterConfig,
+                    'messageBus': c.messageBus
+                }, function (err, raft3) {
+                    _.raft3 = raft3;
+                    subcb(err, raft3);
+                });
+            },
             function clientRequest(_, subcb) {
                 var c = _.cluster;
                 var l = c.getLeader();
@@ -513,6 +526,14 @@ test2('add read-only peer, autopromote', function (t) {
                     }
                 }
                 next();
+            },
+            function (_, subcb) {
+                var allIds = ['raft-0', 'raft-1', 'raft-2', 'raft-3' ];
+                t.deepEqual(allIds, _.cluster.peers['raft-0'].cluster.allIds);
+                t.deepEqual(allIds, _.cluster.peers['raft-1'].cluster.allIds);
+                t.deepEqual(allIds, _.cluster.peers['raft-2'].cluster.allIds);
+                t.deepEqual(allIds, _.raft3.cluster.allIds);
+                subcb();
             }
         ]
     }, function (err) {

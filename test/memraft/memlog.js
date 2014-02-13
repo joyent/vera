@@ -97,6 +97,17 @@ function _refreshClusterConfig() {
 }
 
 
+function _checkForAndHandleClusterConfig(e) {
+    var self = this;
+    if ((typeof (e.command)) === 'object' && e.command.to === 'raft' &&
+        e.command.execute === 'configure' && e.command.cluster &&
+        e.index > self.clusterConfigIndex) {
+        e.command.cluster.prevClogIndex = self.clusterConfigIndex;
+        self.clusterConfigIndex = e.index;
+        _refreshClusterConfig.call(self);
+    }
+}
+
 
 ///--- API
 
@@ -149,6 +160,7 @@ MemLog.prototype.append = function (opts, cb) {
             entry.index = self.clog.length;
             self.clog.push(entry);
             self.nextIndex = self.clog.length;
+            _checkForAndHandleClusterConfig.call(self, entry);
             return (cb(null, entry));
         }
 
@@ -222,18 +234,7 @@ MemLog.prototype.append = function (opts, cb) {
 
             if (!self.clog[e.index] || truncated) {
                 self.clog[e.index] = e;
-
-                //Move the cluster configuration forward if there's a new
-                // config...
-                if ((typeof (e.command)) === 'object' &&
-                    e.command.to === 'raft' &&
-                    e.command.execute === 'configure' &&
-                    e.command.cluster &&
-                    e.index > self.clusterConfigIndex) {
-                    e.command.cluster.prevClogIndex = self.clusterConfigIndex;
-                    self.clusterConfigIndex = e.index;
-                    _refreshClusterConfig.call(self);
-                }
+                _checkForAndHandleClusterConfig.call(self, e);
             }
         }
 
