@@ -2,7 +2,6 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var helper = require('./helper');
 var memraft = require('./memraft');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
@@ -461,86 +460,6 @@ test('parallel client requests', function (t) {
                     c.tick(next);
                 }
                 next();
-            }
-        ]
-    }, function (err) {
-        if (err) {
-            t.fail(err.toString());
-        }
-        t.done();
-    });
-});
-
-
-test('add read-only peer, autopromote', function (t) {
-    vasync.pipeline({
-        arg: {},
-        funcs: [
-            initCluster(),
-            function createRaft3(_, subcb) {
-                var c = _.cluster;
-                var clusterConfig = helper.createClusterConfig(
-                    [ 'raft-0', 'raft-1', 'raft-2' ]);
-                memraft.raft({
-                    'log': LOG,
-                    'id': 'raft-3',
-                    'clusterConfig': clusterConfig,
-                    'messageBus': c.messageBus
-                }, function (err, raft3) {
-                    _.raft3 = raft3;
-                    subcb(err, raft3);
-                });
-            },
-            function clientRequest(_, subcb) {
-                var c = _.cluster;
-                var l = c.getLeader();
-
-                var responseCalled = false;
-                function onResponse(err, res) {
-                    if (err) {
-                        return (subcb(err));
-                    }
-                    responseCalled = true;
-                    subcb();
-                }
-
-                l.clientRequest({
-                    'command': {
-                        'to': 'raft',
-                        'execute': 'addPeer',
-                        'id': 'raft-3',
-                        'autoPromote': true
-                    }
-                }, onResponse);
-
-                //Tick the state machine until we get a response.
-                var x = 0;
-                function next() {
-                    //Safety net...
-                    if (x++ === 100) {
-                        subcb(new Error('didn\'t complete client request in ' +
-                                        '100 ticks'));
-                    }
-                    if (!responseCalled) {
-                        c.tick(next);
-                    }
-                }
-                next();
-            },
-            function (_, subcb) {
-                var allIds = ['raft-0', 'raft-1', 'raft-2', 'raft-3' ];
-                t.deepEqual(allIds, _.cluster.peers['raft-0'].cluster.allIds);
-                t.deepEqual(allIds, _.cluster.peers['raft-1'].cluster.allIds);
-                t.deepEqual(allIds, _.cluster.peers['raft-2'].cluster.allIds);
-                t.deepEqual(allIds, _.raft3.cluster.allIds);
-                t.deepEqual(allIds,
-                            _.cluster.peers['raft-0'].cluster.votingIds);
-                t.deepEqual(allIds,
-                            _.cluster.peers['raft-1'].cluster.votingIds);
-                t.deepEqual(allIds,
-                            _.cluster.peers['raft-2'].cluster.votingIds);
-                t.deepEqual(allIds, _.raft3.cluster.votingIds);
-                subcb();
             }
         ]
     }, function (err) {

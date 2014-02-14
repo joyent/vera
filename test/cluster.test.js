@@ -45,6 +45,8 @@ test('one node current', function (t) {
     t.deepEqual([ 'raft-0' ], c.votingIds);
     t.deepEqual([], c.votingPeerIds);
     t.ok(c.isMajority([ 'raft-0' ]));
+    t.ok(c.votingInAllConfigs('raft-0'));
+    t.ok(c.votingInLatestConfig('raft-0'));
     t.done();
 });
 
@@ -82,6 +84,12 @@ test('three node current config', function (t) {
     t.ok(c.isMajority([ 'raft-1', 'raft-2' ]));
     t.ok(c.isMajority([ 'raft-0', 'raft-1', 'raft-2' ]));
     t.ok(c.isMajority([ 'raft-0', 'raft-0', 'raft-0' ]) === false);
+    t.ok(c.votingInAllConfigs('raft-0'));
+    t.ok(c.votingInAllConfigs('raft-1'));
+    t.ok(c.votingInAllConfigs('raft-2'));
+    t.ok(c.votingInLatestConfig('raft-0'));
+    t.ok(c.votingInLatestConfig('raft-1'));
+    t.ok(c.votingInLatestConfig('raft-2'));
     t.done();
 });
 
@@ -123,6 +131,14 @@ test('nonvoting config', function (t) {
     t.ok(c.isMajority([ 'raft-1', 'raft-2' ]) === false);
     t.ok(c.isMajority([ 'raft-0', 'raft-1', 'raft-2' ]) === false);
     t.ok(c.isMajority([ 'raft-0', 'raft-3' ]));
+    t.ok(c.votingInAllConfigs('raft-0'));
+    t.ok(c.votingInAllConfigs('raft-1') === false);
+    t.ok(c.votingInAllConfigs('raft-2') === false);
+    t.ok(c.votingInAllConfigs('raft-3'));
+    t.ok(c.votingInLatestConfig('raft-0'));
+    t.ok(c.votingInLatestConfig('raft-1') === false);
+    t.ok(c.votingInLatestConfig('raft-2') === false);
+    t.ok(c.votingInLatestConfig('raft-3'));
     t.done();
 });
 
@@ -197,6 +213,16 @@ test('reconfiguration', function (t) {
     t.ok(c.isMajority([ 'raft-0', 'raft-3' ]) === false);
     t.ok(c.isMajority([ 'raft-0', 'raft-1', 'raft-3' ]));
     t.ok(c.isMajority([ 'raft-0', 'raft-2', 'raft-4' ]));
+    t.ok(c.votingInAllConfigs('raft-0'));
+    t.ok(c.votingInAllConfigs('raft-1') === false);
+    t.ok(c.votingInAllConfigs('raft-2') === false);
+    t.ok(c.votingInAllConfigs('raft-3') === false);
+    t.ok(c.votingInAllConfigs('raft-4') === false);
+    t.ok(c.votingInLatestConfig('raft-0'));
+    t.ok(c.votingInLatestConfig('raft-1') === false);
+    t.ok(c.votingInLatestConfig('raft-2') === false);
+    t.ok(c.votingInLatestConfig('raft-3'));
+    t.ok(c.votingInLatestConfig('raft-4'));
     t.done();
 });
 
@@ -251,5 +277,15 @@ test('reconfiguration and nonvoting', function (t) {
     t.ok(c.isMajority([ 'raft-0', 'raft-1', 'raft-3' ]) === false);
     t.ok(c.isMajority([ 'raft-0', 'raft-2', 'raft-4' ]) === false);
     t.ok(c.isMajority([ 'raft-0', 'raft-3', 'raft-4' ]));
+    t.ok(c.votingInAllConfigs('raft-0') === false);
+    t.ok(c.votingInAllConfigs('raft-1') === false);
+    t.ok(c.votingInAllConfigs('raft-2') === false);
+    t.ok(c.votingInAllConfigs('raft-3') === false);
+    t.ok(c.votingInAllConfigs('raft-3') === false);
+    t.ok(c.votingInLatestConfig('raft-0') === false);
+    t.ok(c.votingInLatestConfig('raft-1') === false);
+    t.ok(c.votingInLatestConfig('raft-2') === false);
+    t.ok(c.votingInLatestConfig('raft-3'));
+    t.ok(c.votingInLatestConfig('raft-4'));
     t.done();
 });

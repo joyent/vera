@@ -1,12 +1,11 @@
 ### TODO
 Cluster reconfigurations.
    - Sending snaphots to new peers.
-   - Peers that aren't part of new config... what do they do?
-   - Non-voting members should never transistion to candidate.
    - Autopromotion at the "right time" (after it has finished botstrapping from
      a peer).
    - Testing, testing, testing.
    - Emit events when cluster config has changed?
+   - How does the http message bus know about new peers?
 Read-only peers hanging off a non-leader (?)
 Add Flease to cliffsnotes.
 "run random" and see what it does.
@@ -23,16 +22,6 @@ Tools:
   - add/remove/promote a new peer
   - force leader to step down
 Leader regularly commits suicide as a chaos-monkey type thing.
-
-### Tests for reconfiguration
-- Successful, no problems
-- Old dies after starting to use old/new, before committing
-- Old dies right after new config is propagated to majority
-- Old leader isn't in new configuration
-- New leader finishes up the reconfiguration
-- Multiple cluster reconfigurations at the same time
-- What a raft instance does when it isn't in the new config
-- Read only instances shouldn't try to get votes
 
 ### Overall todo:
 * Solidly tested Raft Core
