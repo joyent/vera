@@ -6,6 +6,7 @@ Cluster reconfigurations.
    - Testing, testing, testing.
    - Emit events when cluster config has changed?
    - How does the http message bus know about new peers?
+Tests for client dying and coming back in waaaay later?
 Read-only peers hanging off a non-leader (?)
 Add Flease to cliffsnotes.
 "run random" and see what it does.

@@ -716,10 +716,12 @@ aren't a voting member, what should they do?  Are they confused, or does the
 remote side know more than they do?
 
 What is a case where the follower is confused?
+
 Leader sends Cold,new to A.  In Cnew B is a voting member.  Leader crashes
 before it sends Cold,new to B.  A times out and requests a vote from B.
 
 What is a case where the requester is confused?
+
 Follower has config Cold where B is a voting member.  Follower crashes.  Cnew
 propagates completely, which removes B from being a voting member.  Follower
 comes back up, times out and requests that B votes.
@@ -729,6 +731,7 @@ behavior for request vote?
 
 Can we take the safest approach of rejecting when a follower believes it is not
 voting?  So if a follower is in read-only it will:
+
 1. reject requestVote requests
 2. on timeout, just reset the ticker (don't transition to candidate)
 
@@ -741,18 +744,20 @@ that is how the code is currently written)?
 Can only give a vote to a peer that is part of a configuration where the
 follower is a voting member seems the safest.
 
-Note: Only one change can propagate at a time, so this is invalid since it looks
-      like C is demoted and D is promoted at the same time.
-AllPeers:   A, B, C, D
-ColdVoters: A, B, C
-CnewVoters: A, B, D
+Note: Only one change can propagate at a time, so this is invalid since C is
+      demoted and D is promoted at the same time.
+
+- AllPeers:   A, B, C, D
+- ColdVoters: A, B, C
+- CnewVoters: A, B, D
 
 Examples:
 
---- Demoting A
-AllPeers:   A
-ColdVoters: A
-CnewVoters:
+#### Demoting A
+
+- AllPeers:   A
+- ColdVoters: A
+- CnewVoters:
 
 Is this ever a valid configuration? Could be used to put a single-node cluster
 in read-only mode as part of retiring a cluster.  But coming back out would be
@@ -762,10 +767,11 @@ non-voting status in a configuration.  TODO: Figure out if there is ever a case
 where we want this.  Seems like it'd be easier just to just have an on/off
 switch on the leader for accepting new client requests from the outside.
 
---- Promoting B
-AllPeers:   A, B
-ColdVoters: A
-CnewVoters: A, B
+#### Promoting B
+
+- AllPeers:   A, B
+- ColdVoters: A
+- CnewVoters: A, B
 
 Only A can be elected leader.  If A goes down when this is the current config
 should B be able to finish the reconfiguration?  According to the raft paper,
@@ -775,10 +781,11 @@ A's committed entries before A crashed.
 B shouldn't ever transition to candidate.  A must be up for the cluster to make
 progress.
 
---- Demoting B
-AllPeers:   A, B
-ColdVoters: A, B
-CnewVoters: A
+#### Demoting B
+
+- AllPeers:   A, B
+- ColdVoters: A, B
+- CnewVoters: A
 
 Want to avoid electing B.  A should be able to elect itself if B goes down.
 A shouldn't accept votes from B.  This seems like a situation that would happen
@@ -789,56 +796,62 @@ Wait... what if B was leader?  A has to have all of B's *committed* entries (and
 perhaps more) because B couldn't have been making progress without A.  A could
 take leadership at any time without adverse effects.
 
---- Demoting C
-AllPeers:   A, B, C
-ColdVoters: A, B, C
-CnewVoters: A, B
+#### Demoting C
+
+- AllPeers:   A, B, C
+- ColdVoters: A, B, C
+- CnewVoters: A, B
 
 Want to avoid electing C.  A or B should be able to be elected leader.  A and
 B must be up to make progress, and they are the only ones that matter.
 
---- Promoting C
-AllPeers:   A, B, C
-ColdVoters: A, B
-CnewVoters: A, B, C
+#### Promoting C
+
+- AllPeers:   A, B, C
+- ColdVoters: A, B
+- CnewVoters: A, B, C
 
 Only A or B can be elected leader since only they are guarenteed to have all the
 log entries.  Followers should never transition to candidate unless they are
 voting member in both Cold and Cnew.
 
 What about A completes the config change to B, but not to C, then A crashes?
+
 * C can't be ahead of B or else it would have the config change that B has.
 * B can't make progress until C is up to date.
 * B is will have everything that A had committed since A couldn't have made
   progress without it.
+
 Seems that it is safe for C to cast the vote for C.
 
---- Adding C
-AllPeers:   A, B, C
-ColdVoters: A, B
-CnewVoters: A, B
+#### Adding C
+
+- AllPeers:   A, B, C
+- ColdVoters: A, B
+- CnewVoters: A, B
 
 A and B are the only ones that matter.
 
---- Promoting E
-AllPeers:   A, B, C, D, E
-ColdVoters: A, B, C, D
-CnewVoters: A, B, C, D, E
+#### Promoting E
+
+- AllPeers:   A, B, C, D, E
+- ColdVoters: A, B, C, D
+- CnewVoters: A, B, C, D, E
 
 There's plenty of redundency here that A, B, C, and D can make progress if any
 one of them goes down.  E shouldn't be elected because it isn't guarenteed to
 have all
 
---- Demoting E
-AllPeers:   A, B, C, D, E
-ColdVoters: A, B, C, D, E
-CnewVoters: A, B, C, D
+#### Demoting E
+
+- AllPeers:   A, B, C, D, E
+- ColdVoters: A, B, C, D, E
+- CnewVoters: A, B, C, D
 
 E shouldn't be elected leader since it is a waste to elect it.
 
-Given the above:
+#### Given the above:
 
-Final:
 * Append entries should be accepted as long at the sender is in the list of
   peers.
 * Followers should max their ticker on every tick if they are read-only in any
