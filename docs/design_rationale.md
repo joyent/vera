@@ -861,3 +861,19 @@ E shouldn't be elected leader since it is a waste to elect it.
   in *all* configs.
 * Followers should only cast votes for candidates if it is a voter in Cnew or
   Ccurrent.
+
+### Ways of getting the cluster config into raft?
+
+Our method for deploying something like vera would be:
+
+1. Deploy first.  First sees that it is the only one, starts itself with
+   a self generated config.
+2. Deploy second.  Second sees there's already a first, starts itself with no
+   config, waits to be bootstrapped by #1.
+
+Another way is to pre-determine the number of rafts (and other config
+information), generate the config, start each raft with that config and let them
+race as they startup.
+
+Up until now the second way is what we've been doing with the test clusters.  So
+we haven't had any real need to bootstrap one peer from another.

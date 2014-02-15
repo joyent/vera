@@ -123,38 +123,47 @@ function tick(c, cb) {
 }
 
 
+function raftSummary(r) {
+    return (sprintf(
+        '%s %9s term: %3d, t-out: %2d, leader: %s, commitIdx: %d\n',
+        r.id, r.state, r.currentTerm(), r.leaderTimeout,
+        r.leaderId === undefined ? 'undefd' : r.leaderId,
+        r.stateMachine.commitIndex));
+}
+
+
+function messageBusSummary(m) {
+    var s = '';
+    s += sprintf(
+        'Messages:%s\n',
+        Object.keys(m.messages).length === 0 ? ' (none)' : '');
+    Object.keys(m.messages).forEach(function (mi) {
+        var me = m.messages[mi];
+        var prefix = sprintf('%s -> %s: term %3d', me.from, me.to,
+                             me.message.term);
+        if (me.message.operation === 'requestVote') {
+            s += sprintf('  reqVote %s, logIndex: %3d, logTerm: %3d\n', prefix,
+                         me.message.lastLogIndex, me.message.lastLogTerm);
+        } else {
+            s += sprintf('  appEntr %s, leader: %s, commitIndex: %3d\n',
+                         prefix, me.message.leaderId, me.message.commitIndex);
+        }
+    });
+    return (s);
+}
+
+
 function clusterToString(c) {
     var self = c || this;
     var s = '';
 
     //Peers
     Object.keys(self.peers).map(function (p) {
-        var peer = self.peers[p];
-        s += sprintf(
-            '%s %9s term: %3d, t-out: %2d, leader: %s, commitIdx: %d\n',
-            peer.id, peer.state, peer.currentTerm(), peer.leaderTimeout,
-            peer.leaderId === undefined ? 'undefd' : peer.leaderId,
-            peer.stateMachine.commitIndex);
+        s += raftSummary(self.peers[p]);
     });
 
     //Messages
-    s += sprintf(
-        'Messages:%s\n',
-        Object.keys(self.messageBus.messages).length === 0 ? ' (none)' : '');
-    Object.keys(self.messageBus.messages).forEach(function (mi) {
-        var m = self.messageBus.messages[mi];
-        var prefix = sprintf('%s -> %s: term %3d', m.from, m.to,
-                             m.message.term);
-        if (m.message.operation === 'requestVote') {
-            s += sprintf('  reqVote %s, logIndex: %3d, logTerm: %3d\n', prefix,
-                         m.message.lastLogIndex, m.message.lastLogTerm);
-        } else {
-            s += sprintf('  appEntr %s, leader: %s, commitIndex: %3d,' +
-                         ' nentries: %3d\n', prefix, m.message.leaderId,
-                         m.message.commitIndex, m.message.entries.length);
-        }
-    });
-
+    s += messageBusSummary(self.messageBus);
     return (s);
 }
 
@@ -165,10 +174,12 @@ function cluster(opts, cb) {
     assert.object(opts.log, 'opts.log');
     assert.number(opts.size, 'opts.size');
     assert.optionalBool(opts.electLeader, 'opts.electLeader');
+    assert.optionalObject(opts.messageBus, 'opts.messageBus');
+    assert.optionalNumber(opts.idOffset, 'opts.idOffset');
 
     //Only putting everything in here so you can see what will be returned.
     var c = {
-        'messageBus': undefined,
+        'messageBus': opts.messageBus,
         'peers': {},
         'getLeader': getLeader,
         'tick': tick,
@@ -176,15 +187,20 @@ function cluster(opts, cb) {
     };
     var log = opts.log;
     var peers = [];
+    var idOffset = opts.idOffset === undefined ? 0 : opts.idOffset;
     for (var i = 0; i < opts.size; ++i) {
-        peers.push('raft-' + i);
+        peers.push('raft-' + (i + idOffset));
     }
     vasync.pipeline({
         arg: {},
         funcs: [
             function initMessageBus(_, subcb) {
-                c.messageBus = new MessageBus({ 'log': log });
-                c.messageBus.on('ready', subcb);
+                if (c.messageBus === undefined) {
+                    c.messageBus = new MessageBus({ 'log': log });
+                    c.messageBus.on('ready', subcb);
+                } else {
+                    subcb();
+                }
             },
             function initPeers(_, subcb) {
                 var inited = 0;
@@ -261,5 +277,7 @@ function cluster(opts, cb) {
 ///--- Exports
 module.exports = {
     'cluster': cluster,
-    'raft': raft
+    'raft': raft,
+    'raftSummary': raftSummary,
+    'messageBusSummary': messageBusSummary
 };

@@ -1,17 +1,18 @@
 ### TODO
 Cluster reconfigurations.
    - Sending snaphots to new peers.
+   - Figure out what raft should do with no cluster config, and where it
+     gets a snapshot sent to it.
    - Autopromotion at the "right time" (after it has finished botstrapping from
      a peer).
    - Testing, testing, testing.
    - Emit events when cluster config has changed?
    - How does the http message bus know about new peers?
 Tests for client dying and coming back in waaaay later?
+Raft repl used in testing.
 Read-only peers hanging off a non-leader (?)
 Add Flease to cliffsnotes.
 "run random" and see what it does.
-cli to issue commands to an in-mem cluster (same framework as a plaintext test
-   framework?)
 command log truncation.
 request id logging through pipelines (should only be done in the server, no?)
 revamp error handling in raft class
@@ -44,7 +45,12 @@ cluster of 3
 set 0.leaderTimeout to 0
 tick until 0.state is leader
 client foo bar baz
-tick until stateMachine.data is baz
+tick until 0.stateMachine.data is baz
+
+cluster of 3
+tick until cluster.hasLeader
+new raft-3
+client add raft-3
 
 ### Working out request flow for cluster reconfigurations
 Client request to add a peer
