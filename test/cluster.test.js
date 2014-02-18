@@ -1,6 +1,6 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
-var Cluster = require('../lib/cluster');
+var lib = require('../lib');
 var test = require('nodeunit-plus').test;
 
 
@@ -8,7 +8,7 @@ var test = require('nodeunit-plus').test;
 ///--- Tests
 
 test('empty config', function (t) {
-    var c = new Cluster({
+    var c = new lib.Cluster({
         'id': 'raft-0',
         'clusterConfig': {
             'clogIndex': 0,
@@ -27,7 +27,7 @@ test('empty config', function (t) {
 
 
 test('one node current', function (t) {
-    var c = new Cluster({
+    var c = new lib.Cluster({
         'id': 'raft-0',
         'clusterConfig': {
             'clogIndex': 0,
@@ -52,7 +52,7 @@ test('one node current', function (t) {
 
 
 test('three node current config', function (t) {
-    var c = new Cluster({
+    var c = new lib.Cluster({
         'id': 'raft-0',
         'clusterConfig': {
             'clogIndex': 0,
@@ -95,7 +95,7 @@ test('three node current config', function (t) {
 
 
 test('nonvoting config', function (t) {
-    var c = new Cluster({
+    var c = new lib.Cluster({
         'id': 'raft-0',
         'clusterConfig': {
             'clogIndex': 0,
@@ -144,7 +144,7 @@ test('nonvoting config', function (t) {
 
 
 test('empty reconfiguration', function (t) {
-    var c = new Cluster({
+    var c = new lib.Cluster({
         'id': 'raft-0',
         'clusterConfig': {
             'clogIndex': 0,
@@ -164,7 +164,7 @@ test('empty reconfiguration', function (t) {
 
 
 test('reconfiguration', function (t) {
-    var c = new Cluster({
+    var c = new lib.Cluster({
         'id': 'raft-0',
         'clusterConfig': {
             'clogIndex': 0,
@@ -228,7 +228,7 @@ test('reconfiguration', function (t) {
 
 
 test('reconfiguration and nonvoting', function (t) {
-    var c = new Cluster({
+    var c = new lib.Cluster({
         'id': 'raft-0',
         'clusterConfig': {
             'clogIndex': 0,

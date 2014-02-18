@@ -3,7 +3,6 @@
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var lib = require('../lib');
-var PairsStream = require('../lib/pairs_stream');
 var Readable = require('stream').Readable;
 var test = require('nodeunit-plus').test;
 var util = require('util');
@@ -64,7 +63,7 @@ function runFlowingTest(opts, cb) {
     var result = opts.result;
     var res = [];
 
-    var ps = new PairsStream({ 'left': left, 'right': right });
+    var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
     if (flowing) {
         ps.on('data', function (d) {
@@ -208,7 +207,7 @@ test('read slow, non-flowing, left ends first', function (t) {
     var right = memstream([1, 2, 3, 4, 5, 6, 7, 8]);
     var res = [];
 
-    var ps = new PairsStream({ 'left': left, 'right': right });
+    var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
     ps.on('readable', function () {
         function next() {
@@ -236,7 +235,7 @@ test('read slow, non-flowing, right ends first', function (t) {
     var right = memstream([1, 2, 3, 4]);
     var res = [];
 
-    var ps = new PairsStream({ 'left': left, 'right': right });
+    var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
     ps.on('readable', function () {
         function next() {
@@ -266,7 +265,7 @@ test('pause during pairs, flowing', function (t) {
     var paused = false;
     var npaused = 0;
 
-    var ps = new PairsStream({ 'left': left, 'right': right });
+    var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
     ps.on('data', function (d) {
         assert.ok(!paused);
@@ -298,7 +297,7 @@ test('pause during left still going, flowing', function (t) {
     var paused = false;
     var npaused = 0;
 
-    var ps = new PairsStream({ 'left': left, 'right': right });
+    var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
     ps.on('data', function (d) {
         assert.ok(!paused);
@@ -332,7 +331,7 @@ test('pause during right still going, flowing', function (t) {
     var paused = false;
     var npaused = 0;
 
-    var ps = new PairsStream({ 'left': left, 'right': right });
+    var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
     ps.on('data', function (d) {
         assert.ok(!paused);
@@ -390,7 +389,7 @@ test('stream after reading one', function (t) {
             return;
         }
 
-        var ps = new PairsStream({ 'left': left, 'right': right });
+        var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
         ps.on('data', function (d) {
             res.push(d);
@@ -443,7 +442,7 @@ test('stream after reading one, left end', function (t) {
             return;
         }
 
-        var ps = new PairsStream({ 'left': left, 'right': right });
+        var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
         ps.on('data', function (d) {
             res.push(d);
@@ -495,7 +494,7 @@ test('stream after reading one, right end', function (t) {
             return;
         }
 
-        var ps = new PairsStream({ 'left': left, 'right': right });
+        var ps = new lib.PairsStream({ 'left': left, 'right': right });
 
         ps.on('data', function (d) {
             res.push(d);
@@ -571,7 +570,7 @@ test('left ends while waiting for right readable', function (t) {
         leftPushed = true;
     };
 
-    var ps = new PairsStream({ 'left': left, 'right': right });
+    var ps = new lib.PairsStream({ 'left': left, 'right': right });
     left.ps = ps;
     var res = [];
 

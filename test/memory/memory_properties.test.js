@@ -1,7 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var MemProps = require('../../lib/memory/properties');
+var lib = require('../../lib/memory');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
@@ -25,7 +25,7 @@ test('crud', function (t) {
         args: {},
         funcs: [
             function init(_, subcb) {
-                props = new MemProps({ 'log': LOG });
+                props = new lib.Properties({ 'log': LOG });
                 props.on('ready', subcb);
             },
             function write(_, subcb) {

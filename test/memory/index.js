@@ -2,13 +2,10 @@
 
 var assert = require('assert-plus');
 var helper = require('../helper.js');
-var MemLog = require('../../lib/memory/command_log');
-var MemProps = require('../../lib/memory/properties');
+var lib = require('../../lib');
+var memlib = require('../../lib/memory');
 var MessageBus = require('../messagebus');
-var Raft = require('../../lib/raft');
 var sprintf = require('extsprintf').sprintf;
-var Snapshotter = require('../../lib/memory/snapshotter');
-var StateMachine = require('../../lib/memory/state_machine');
 var vasync = require('vasync');
 
 
@@ -42,17 +39,17 @@ function raft(opts, cb) {
                 }
             },
             function initStateMachine(_, subcb) {
-                _.stateMachine = new StateMachine({ 'log': log });
+                _.stateMachine = new memlib.StateMachine({ 'log': log });
                 _.stateMachine.on('ready', subcb);
             },
             function initMemLog(_, subcb) {
-                _.clog = new MemLog({ 'log': log,
+                _.clog = new memlib.CommandLog({ 'log': log,
                                       'stateMachine': _.stateMachine,
                                       'clusterConfig': opts.clusterConfig });
                 _.clog.on('ready', subcb);
             },
             function initMemProps(_, subcb) {
-                _.properties = new MemProps({
+                _.properties = new memlib.Properties({
                     'log': log,
                     'props': {
                         'currentTerm': 0
@@ -61,13 +58,13 @@ function raft(opts, cb) {
                 _.properties.on('ready', subcb);
             },
             function initSnapshotter(_, subcb) {
-                _.snapshotter = new Snapshotter({
+                _.snapshotter = new memlib.Snapshotter({
                     'log': log
                 });
                 _.snapshotter.on('ready', subcb);
             },
             function initRaft(_, subcb) {
-                r = new Raft(opts);
+                r = new lib.Raft(opts);
                 r.once('stateChange', function (state) {
                     if (state !== 'follower') {
                         return (subcb(new Error(

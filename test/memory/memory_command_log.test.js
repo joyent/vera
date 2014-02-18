@@ -3,9 +3,8 @@
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var lib = require('../../lib');
-var MemLog = require('../../lib/memory/command_log');
+var memlib = require('../../lib/memory');
 var nodeunitPlus = require('nodeunit-plus');
-var StateMachine = require('../../lib/memory/state_machine');
 var stream = require('stream');
 var util = require('util');
 var vasync = require('vasync');
@@ -36,14 +35,15 @@ before(function (cb) {
     vasync.pipeline({
         funcs: [
             function initStateMachine(_, subcb) {
-                self.stateMachine = new StateMachine({ 'log': LOG });
+                self.stateMachine = new memlib.StateMachine({ 'log': LOG });
                 self.stateMachine.on('ready', subcb);
             },
             function initMemLogHere(_, subcb) {
-                self.clog = new MemLog({ 'log': LOG,
-                                         'stateMachine': self.stateMachine,
-                                         'clusterConfig': { 'current': {} }
-                                       });
+                self.clog = new memlib.CommandLog({
+                    'log': LOG,
+                    'stateMachine': self.stateMachine,
+                    'clusterConfig': { 'current': {} }
+                });
                 self.clog.on('ready', subcb);
             }
         ]

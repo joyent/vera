@@ -2,7 +2,7 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var TaskPipe = require('../lib/task_pipe');
+var lib = require('../lib');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
@@ -22,7 +22,7 @@ var LOG = bunyan.createLogger({
 
 test('single task', function (t) {
     var taskLog = [];
-    var taskPipe = new TaskPipe({
+    var taskPipe = new lib.TaskPipe({
         'tasks': [ {
             'name': 'tp',
             'func': function (opts, cb) {
@@ -56,7 +56,7 @@ test('single task', function (t) {
 
 test('multiple tasks', function (t) {
     var taskLog = [];
-    var taskPipe = new TaskPipe({
+    var taskPipe = new lib.TaskPipe({
         'tasks': [ {
             'name': 'tp',
             'func': function (opts, cb) {
@@ -100,7 +100,7 @@ test('multiple tasks', function (t) {
 
 test('consume multiple', function (t) {
     var taskLog = [];
-    var taskPipe = new TaskPipe({
+    var taskPipe = new lib.TaskPipe({
         'tasks': [ {
             'name': 'tp',
             'func': function (opts, cb) {
@@ -149,7 +149,7 @@ test('consume multiple', function (t) {
 
 test('chain one', function (t) {
     var taskLog = [];
-    var taskPipe = new TaskPipe({
+    var taskPipe = new lib.TaskPipe({
         'tasks': [ {
             'name': 'tp-1',
             'func': function (opts, cb) {
@@ -192,7 +192,7 @@ test('chain one', function (t) {
 // break at some point.  If/when it does, we'll have to rewrite.
 test('chain multiple', function (t) {
     var taskLog = [];
-    var taskPipe = new TaskPipe({
+    var taskPipe = new lib.TaskPipe({
         'tasks': [ {
             'name': 'tp-1',
             'func': function (opts, cb) {
@@ -270,7 +270,7 @@ test('chain multiple', function (t) {
 
 test('chain break', function (t) {
     var reachedTwo = false;
-    var taskPipe = new TaskPipe({
+    var taskPipe = new lib.TaskPipe({
         'tasks': [ {
             'name': 'tp-1',
             'func': function (opts, cb) {
@@ -305,7 +305,7 @@ test('chain break', function (t) {
 
 
 test('setImmediate callback', function (t) {
-    var taskPipe = new TaskPipe({
+    var taskPipe = new lib.TaskPipe({
         'tasks': [ {
             'name': 'tp-1',
             'func': function (opts, cb) {
@@ -338,7 +338,7 @@ test('setImmediate callback', function (t) {
 
 
 test('immediate callback', function (t) {
-    var taskPipe = new TaskPipe({
+    var taskPipe = new lib.TaskPipe({
         'tasks': [ {
             'name': 'tp-1',
             'func': function (opts, cb) {

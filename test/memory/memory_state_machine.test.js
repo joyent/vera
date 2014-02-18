@@ -2,9 +2,9 @@
 
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
+var lib = require('../../lib/memory');
 var memstream = require('../../lib').memstream;
 var test = require('nodeunit-plus').test;
-var StateMachine = require('../../lib/memory/state_machine');
 var vasync = require('vasync');
 
 
@@ -25,7 +25,7 @@ test('state machine init and execute one', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
-            sm = new StateMachine({ 'log': LOG });
+            sm = new lib.StateMachine({ 'log': LOG });
             sm.on('ready', subcb);
         },
         function (_, subcb) {
@@ -58,7 +58,7 @@ test('state machine execute many', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
-            sm = new StateMachine({ 'log': LOG });
+            sm = new lib.StateMachine({ 'log': LOG });
             sm.on('ready', subcb);
         },
         function (_, subcb) {
@@ -91,7 +91,7 @@ test('state machine first out of order', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
-            sm = new StateMachine({ 'log': LOG });
+            sm = new lib.StateMachine({ 'log': LOG });
             sm.on('ready', subcb);
         },
         function (_, subcb) {
@@ -116,7 +116,7 @@ test('state machine middle out of order', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
-            sm = new StateMachine({ 'log': LOG });
+            sm = new lib.StateMachine({ 'log': LOG });
             sm.on('ready', subcb);
         },
         function (_, subcb) {
@@ -144,7 +144,7 @@ test('clone', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
-            sm = new StateMachine({ 'log': LOG });
+            sm = new lib.StateMachine({ 'log': LOG });
             sm.on('ready', subcb);
         },
         function (_, subcb) {

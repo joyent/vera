@@ -1,7 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
-var lib = require('../../lib');
 var helper = require('../helper');
+var lib = require('../../lib');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
