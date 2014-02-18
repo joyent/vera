@@ -4,19 +4,19 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var lib = require('../../lib');
-var leveldbraft = require('../leveldbraft');
+var leveldbraft = require('../leveldb');
 var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
 // All the actual tests are here...
-var raftRequestVoteTests = require('../share/raft_requestvote_tests.js');
+var raftAppendEntriesTests = require('../share/raft_appendentries_tests.js');
 
 ///--- Globals
 
 var after = nodeunitPlus.after;
 var before = nodeunitPlus.before;
 var createClusterConfig = helper.createClusterConfig;
-var memStream = lib.memStream;
+var memstream = lib.memstream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',
@@ -36,7 +36,7 @@ before(function (cb) {
         'log': LOG,
         'id': 'raft-0',
         'clusterConfig': clusterConfig,
-        'dbName': 'raft_requestvote_tests_db'
+        'dbName': 'raft_appendentries_tests_db'
     };
 
     var e = helper.e(clusterConfig);
@@ -58,11 +58,32 @@ before(function (cb) {
                     'operation': 'appendEntries',
                     'term': 3,
                     'leaderId': 'raft-1',
-                    'entries': memStream([
+                    'entries': memstream([
                         e(0, 0),
                         e(1, 1),
                         e(2, 2),
                         e(3, 3)
+                    ]),
+                    'commitIndex': 2
+                }, subcb);
+            },
+            function requestVote(o, subcb) {
+                self.raft.requestVote({
+                    'operation': 'requestVote',
+                    'candidateId': 'raft-1',
+                    'term': 3,
+                    'lastLogTerm': 3,
+                    'lastLogIndex': 3
+                }, subcb);
+            },
+            //To get the leader set.
+            function assertLeader(o, subcb) {
+                self.raft.appendEntries({
+                    'operation': 'appendEntries',
+                    'term': 3,
+                    'leaderId': 'raft-1',
+                    'entries': memstream([
+                        e(3, 3, 'three')
                     ]),
                     'commitIndex': 2
                 }, subcb);

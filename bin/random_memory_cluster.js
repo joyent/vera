@@ -2,7 +2,7 @@
 
 var bunyan = require('bunyan');
 var getopt = require('posix-getopt');
-var MemRaft = require('../test/memraft');
+var MemRaft = require('../test/memory');
 var path = require('path');
 var sprintf = require('extsprintf').sprintf;
 

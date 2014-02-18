@@ -4,11 +4,10 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var fs = require('fs');
 var helper = require('../helper.js');
-var LevelDbLog = require('../../lib/leveldb/log');
 var lib = require('../../lib/leveldb');
-var memStream = require('../../lib').memStream;
+var memlib = require('../../lib/memory');
+var memstream = require('../../lib').memstream;
 var path = require('path');
-var StateMachine = require('../memraft/statemachine');
 var stream = require('stream');
 var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
@@ -49,14 +48,14 @@ before(function (cb) {
                 });
             },
             function initStateMachine(_, subcb) {
-                self.stateMachine = new StateMachine({ 'log': LOG });
+                self.stateMachine = new memlib.StateMachine({ 'log': LOG });
                 self.stateMachine.on('ready', subcb);
             },
             function removeOldLevelDb(_, subcb) {
                 helper.rmrf(DB_FILE, subcb);
             },
             function initDb(_, subcb) {
-                self.clog = new LevelDbLog({
+                self.clog = new lib.CommandLog({
                     'log': LOG,
                     'location': DB_FILE,
                     'stateMachine': self.stateMachine,
@@ -101,7 +100,7 @@ test('verify lastLogIndex in db', function (t) {
             t.equal(expected, v);
             cb();
         }
-        self.clog.db.get(lib.internalPropertyKey('lastLogIndex'),
+        self.clog.db.get(lib.key.internalProperty('lastLogIndex'),
                          onGet);
     }
 
@@ -111,7 +110,7 @@ test('verify lastLogIndex in db', function (t) {
                 'commitIndex': 0,
                 'term': 0,
                 //No index, so append!
-                'entries': memStream([ { 'term': 2,
+                'entries': memstream([ { 'term': 2,
                                          'command': 'command-1-2' } ])
             }, function (err, entry) {
                 if (err) {
@@ -129,7 +128,7 @@ test('verify lastLogIndex in db', function (t) {
                 'commitIndex': 0,
                 'term': 0,
                 //No index, so append!
-                'entries': memStream([ { 'term': 2,
+                'entries': memstream([ { 'term': 2,
                                          'command': 'command-2-2' } ])
             }, function (err, entry) {
                 t.equal(2, entry.index);
@@ -157,7 +156,7 @@ test('open with correct state', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': memStream([
+                'entries': memstream([
                     { 'term': 2, 'command': 'command-1-2' }
                 ])
             }, function (err, entry) {
@@ -180,7 +179,7 @@ test('open with correct state', function (t) {
         },
         //Open a new clog over the old one
         function (_, subcb) {
-            self.clog = new LevelDbLog({
+            self.clog = new lib.CommandLog({
                 'log': LOG,
                 'location': DB_FILE,
                 'stateMachine': self.stateMachine

@@ -2,9 +2,9 @@
 
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
-var memStream = require('../../lib').memStream;
+var memstream = require('../../lib').memstream;
 var test = require('nodeunit-plus').test;
-var StateMachine = require('./statemachine');
+var StateMachine = require('../../lib/memory/state_machine');
 var vasync = require('vasync');
 
 
@@ -13,7 +13,7 @@ var vasync = require('vasync');
 
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
-    name: 'statemachine-test',
+    name: 'state_machine-test',
     stream: process.stdout
 });
 
@@ -21,7 +21,7 @@ var LOG = bunyan.createLogger({
 
 ///--- Tests
 
-test('statemachine init and execute one', function (t) {
+test('state machine init and execute one', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
@@ -34,7 +34,7 @@ test('statemachine init and execute one', function (t) {
             subcb();
         },
         function (_, subcb) {
-            sm.execute(memStream([
+            sm.execute(memstream([
                 { 'index': 1, 'command': 'one' }
             ]), function (err) {
                 t.equal('one', sm.data);
@@ -54,7 +54,7 @@ test('statemachine init and execute one', function (t) {
 });
 
 
-test('statemachine execute many', function (t) {
+test('state machine execute many', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
@@ -62,7 +62,7 @@ test('statemachine execute many', function (t) {
             sm.on('ready', subcb);
         },
         function (_, subcb) {
-            sm.execute(memStream([
+            sm.execute(memstream([
                 { 'index': 1, 'command': 'one' },
                 { 'index': 2, 'command': 'two' },
                 { 'index': 3, 'command': 'three' },
@@ -87,7 +87,7 @@ test('statemachine execute many', function (t) {
 });
 
 
-test('statemachine first out of order', function (t) {
+test('state machine first out of order', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
@@ -95,7 +95,7 @@ test('statemachine first out of order', function (t) {
             sm.on('ready', subcb);
         },
         function (_, subcb) {
-            sm.execute(memStream([
+            sm.execute(memstream([
                 { 'index': 2, 'command': 'two' }
             ]), subcb);
         }
@@ -112,7 +112,7 @@ test('statemachine first out of order', function (t) {
 });
 
 
-test('statemachine middle out of order', function (t) {
+test('state machine middle out of order', function (t) {
     var sm;
     var funcs = [
         function (_, subcb) {
@@ -120,7 +120,7 @@ test('statemachine middle out of order', function (t) {
             sm.on('ready', subcb);
         },
         function (_, subcb) {
-            sm.execute(memStream([
+            sm.execute(memstream([
                 { 'index': 1, 'command': 'one' },
                 { 'index': 2, 'command': 'two' },
                 { 'index': 4, 'command': 'four' },
@@ -154,7 +154,7 @@ test('clone', function (t) {
             subcb();
         },
         function (_, subcb) {
-            sm.execute(memStream([
+            sm.execute(memstream([
                 { 'index': 1, 'command': 'one' },
                 { 'index': 2, 'command': 'two' }
             ]), subcb);
@@ -166,15 +166,17 @@ test('clone', function (t) {
             subcb();
         },
         function (_, subcb) {
-            var smClone = sm.from(sm.snapshot());
-            smClone.on('ready', function () {
+            sm.from(sm.snapshot(), function (err, smClone) {
+                if (err) {
+                    return (subcb(err));
+                }
                 t.equal(2, smClone.commitIndex);
                 t.equal('two', smClone.data);
-                smClone.execute(memStream([
+                smClone.execute(memstream([
                     { 'index': 3, 'command': 'three' },
                     { 'index': 4, 'command': 'four' }
-                ]), function (err) {
-                    if (err) {
+                ]), function (err2) {
+                    if (err2) {
                         return (subcb(err));
                     }
                     t.equal(4, smClone.commitIndex);

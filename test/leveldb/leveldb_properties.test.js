@@ -3,8 +3,7 @@
 var bunyan = require('bunyan');
 var fs = require('fs');
 var helper = require('../helper.js');
-var leveldbIndex = require('../../lib/leveldb');
-var LevelProps = require('../../lib/leveldb/properties');
+var lib = require('../../lib/leveldb');
 var path = require('path');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
@@ -42,7 +41,7 @@ test('crud', function (t) {
                 helper.rmrf(DB_FILE, subcb);
             },
             function init(_, subcb) {
-                props = new LevelProps({
+                props = new lib.Properties({
                     'log': LOG,
                     'location': DB_FILE
                 });
@@ -82,7 +81,7 @@ test('crud', function (t) {
             },
             //Reopen and get again.
             function openNew(_, subcb) {
-                props = new LevelProps({
+                props = new lib.Properties({
                     'log': LOG,
                     'location': DB_FILE
                 });

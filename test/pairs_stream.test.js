@@ -13,7 +13,7 @@ var vasync = require('vasync');
 
 ///--- Globals
 
-var memStream = lib.memStream;
+var memstream = lib.memstream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'memprops-test',
@@ -59,8 +59,8 @@ function runFlowingTest(opts, cb) {
 
     var t = opts.t;
     var flowing = opts.flowing;
-    var left = memStream(opts.left || []);
-    var right = memStream(opts.right || []);
+    var left = memstream(opts.left || []);
+    var right = memstream(opts.right || []);
     var result = opts.result;
     var res = [];
 
@@ -204,8 +204,8 @@ test('left ends 2 before right', function (t) {
 
 
 test('read slow, non-flowing, left ends first', function (t) {
-    var left = memStream([1, 2, 3, 4]);
-    var right = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var left = memstream([1, 2, 3, 4]);
+    var right = memstream([1, 2, 3, 4, 5, 6, 7, 8]);
     var res = [];
 
     var ps = new PairsStream({ 'left': left, 'right': right });
@@ -232,8 +232,8 @@ test('read slow, non-flowing, left ends first', function (t) {
 
 
 test('read slow, non-flowing, right ends first', function (t) {
-    var left = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
-    var right = memStream([1, 2, 3, 4]);
+    var left = memstream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var right = memstream([1, 2, 3, 4]);
     var res = [];
 
     var ps = new PairsStream({ 'left': left, 'right': right });
@@ -260,8 +260,8 @@ test('read slow, non-flowing, right ends first', function (t) {
 
 
 test('pause during pairs, flowing', function (t) {
-    var left = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
-    var right = memStream([1, 2, 3, 4]);
+    var left = memstream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var right = memstream([1, 2, 3, 4]);
     var res = [];
     var paused = false;
     var npaused = 0;
@@ -292,8 +292,8 @@ test('pause during pairs, flowing', function (t) {
 
 
 test('pause during left still going, flowing', function (t) {
-    var left = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
-    var right = memStream([1, 2, 3, 4]);
+    var left = memstream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var right = memstream([1, 2, 3, 4]);
     var res = [];
     var paused = false;
     var npaused = 0;
@@ -326,8 +326,8 @@ test('pause during left still going, flowing', function (t) {
 
 
 test('pause during right still going, flowing', function (t) {
-    var left = memStream([1, 2, 3, 4]);
-    var right = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var left = memstream([1, 2, 3, 4]);
+    var right = memstream([1, 2, 3, 4, 5, 6, 7, 8]);
     var res = [];
     var paused = false;
     var npaused = 0;
@@ -360,8 +360,8 @@ test('pause during right still going, flowing', function (t) {
 
 
 test('stream after reading one', function (t) {
-    var left = memStream([1, 2, 3, 4]);
-    var right = memStream([1, 2, 3, 4, 5, 6, 7, 8]);
+    var left = memstream([1, 2, 3, 4]);
+    var right = memstream([1, 2, 3, 4, 5, 6, 7, 8]);
     var res = [];
 
     var leftFirst = null;
@@ -413,8 +413,8 @@ test('stream after reading one', function (t) {
 
 
 test('stream after reading one, left end', function (t) {
-    var left = memStream([1]);
-    var right = memStream([1, 2]);
+    var left = memstream([1]);
+    var right = memstream([1, 2]);
     var res = [];
 
     var leftFirst = null;
@@ -465,8 +465,8 @@ test('stream after reading one, left end', function (t) {
 
 
 test('stream after reading one, right end', function (t) {
-    var left = memStream([1, 2]);
-    var right = memStream([1]);
+    var left = memstream([1, 2]);
+    var right = memstream([1]);
     var res = [];
 
     var leftFirst = null;

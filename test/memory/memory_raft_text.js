@@ -3,8 +3,8 @@
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var fs = require('fs');
-var memraft = require('./memraft');
-var MessageBus = require('./messagebus');
+var memraft = require('../memory');
+var MessageBus = require('../messagebus');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 

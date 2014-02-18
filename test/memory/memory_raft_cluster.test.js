@@ -2,7 +2,7 @@
 
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
-var memraft = require('./memraft');
+var memraft = require('../memory');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 

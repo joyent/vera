@@ -3,14 +3,11 @@
 var assert = require('assert-plus');
 var fs = require('fs');
 var helper = require('../helper.js');
-var LevelDbLog = require('../../lib/leveldb/log');
-var levelDbIndex = require('../../lib/leveldb');
-var LevelDbProperties = require('../../lib/leveldb/properties');
-var LevelDbSnapshotter = require('../../lib/leveldb/snapshotter');
+var lib = require('../../lib/leveldb');
 var MessageBus = require('../messagebus');
 var path = require('path');
 var Raft = require('../../lib/raft');
-var StateMachine = require('./statemachine');
+var StateMachine = require('./state_machine');
 var vasync = require('vasync');
 
 
@@ -52,7 +49,7 @@ function raft(opts, cb) {
                 helper.rmrf(dbLocation, subcb);
             },
             function initLevelDb(_, subcb) {
-                levelDbIndex.createOrOpen({
+                lib.dbHelpers.createOrOpen({
                     'log': log,
                     'location': dbLocation
                 }, function (err, res) {
@@ -79,7 +76,7 @@ function raft(opts, cb) {
                 _.stateMachine.on('ready', subcb);
             },
             function initCommandLog(_, subcb) {
-                _.clog = new LevelDbLog({
+                _.clog = new lib.CommandLog({
                     'log': log,
                     'db': _.db,
                     'stateMachine': _.stateMachine,
@@ -89,14 +86,14 @@ function raft(opts, cb) {
                 _.clog.on('error', subcb);
             },
             function initLevelDbPropertiesProps(_, subcb) {
-                _.properties = new LevelDbProperties({
+                _.properties = new lib.Properties({
                     'log': log,
                     'db': _.db
                 });
                 _.properties.on('ready', subcb);
             },
             function initLevelDbSnapshotter(_, subcb) {
-                _.snapshotter = new LevelDbSnapshotter({
+                _.snapshotter = new lib.Snapshotter({
                     'log': log,
                     'db': _.db
                 });

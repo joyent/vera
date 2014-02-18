@@ -10,7 +10,6 @@ var vasync = require('vasync');
 
 ///--- Globals
 
-var memStream = lib.memStream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'memstream-test',
@@ -22,7 +21,7 @@ var LOG = bunyan.createLogger({
 ///--- Tests
 
 test('test mem flowing', function (t) {
-    var one = memStream([1, 2, 3]);
+    var one = lib.memstream([1, 2, 3]);
     var res = [];
 
     one.on('data', function (d) {
@@ -37,7 +36,7 @@ test('test mem flowing', function (t) {
 
 
 test('test mem non-flowing', function (t) {
-    var one = memStream([1, 2, 3]);
+    var one = lib.memstream([1, 2, 3]);
     var res = [];
 
     one.on('readable', function () {
@@ -55,7 +54,7 @@ test('test mem non-flowing', function (t) {
 
 
 test('test mem end immediately flowing', function (t) {
-    var one = memStream([]);
+    var one = lib.memstream([]);
     var res = [];
 
     one.on('data', function (d) {
@@ -70,7 +69,7 @@ test('test mem end immediately flowing', function (t) {
 
 
 test('test mem end immediately non-flowing', function (t) {
-    var one = memStream([]);
+    var one = lib.memstream([]);
     var res = [];
 
     one.on('readable', function () {
@@ -88,7 +87,7 @@ test('test mem end immediately non-flowing', function (t) {
 
 
 test('test mem stream after reading one, flowing', function (t) {
-    var one = memStream([1, 2, 3, 4, 5]);
+    var one = lib.memstream([1, 2, 3, 4, 5]);
     var res = [];
     var firstOne = null;
 
@@ -117,7 +116,7 @@ test('test mem stream after reading one, flowing', function (t) {
 
 
 test('test mem stream after reading one, non-flowing', function (t) {
-    var one = memStream([1, 2, 3, 4, 5]);
+    var one = lib.memstream([1, 2, 3, 4, 5]);
     var res = [];
     var firstOne = null;
 

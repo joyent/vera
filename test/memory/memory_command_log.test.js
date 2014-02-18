@@ -3,9 +3,9 @@
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var lib = require('../../lib');
-var MemLog = require('./memlog');
+var MemLog = require('../../lib/memory/command_log');
 var nodeunitPlus = require('nodeunit-plus');
-var StateMachine = require('./statemachine');
+var StateMachine = require('../../lib/memory/state_machine');
 var stream = require('stream');
 var util = require('util');
 var vasync = require('vasync');
@@ -148,8 +148,7 @@ test('clone', function (t) {
                 //It's OK to use the same state machine here for the test
                 // because we know we won't care about it ever after.  This is
                 // not safe to do elsewhere.
-                var clClone = cl.from(cl.snapshot(), sm);
-                clClone.on('ready', function () {
+                cl.from(cl.snapshot(), sm, function (err, clClone) {
                     t.deepEqual({
                         'clog': [ e(0, 0),
                                   e(1, 0),

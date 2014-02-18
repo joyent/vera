@@ -2,7 +2,7 @@
 
 var bunyan = require('bunyan');
 var getopt = require('posix-getopt');
-var memraftText = require('../test/memraft_text');
+var memraftText = require('../test/memory/memory_raft_text');
 var path = require('path');
 var readline = require('readline');
 
@@ -56,6 +56,7 @@ function usage(msg) {
 
 var _opts = parseOptions();
 _opts.log = LOG;
+var props = { 'log': LOG };
 
 function handleError(err) {
     if (!err) {
@@ -65,8 +66,8 @@ function handleError(err) {
     process.exit(1);
 }
 
-function repl(_) {
-    _.batch = false;
+function repl(p) {
+    p.batch = false;
     var rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout
@@ -78,7 +79,7 @@ function repl(_) {
                 command === 'exit') {
                 rl.close();
             } else {
-                memraftText.execute(_, [ command ], function (err) {
+                memraftText.execute(p, [ command ], function (err) {
                     if (err) {
                         console.error(err);
                     }
@@ -90,20 +91,19 @@ function repl(_) {
     doNext();
 }
 
-var _ = { 'log': LOG };
-memraftText.init(_, function (err) {
+memraftText.init(props, function (err) {
     handleError(err);
     if (_opts.filename) {
-        _.batch = true;
-        memraftText.executeFile(_, _opts.filename, function (err) {
+        props.batch = true;
+        memraftText.executeFile(props, _opts.filename, function (err2) {
             if (err) {
-                console.error(err);
+                console.error(err2);
             }
             if (_opts.repl) {
-                repl(_);
+                repl(props);
             }
         });
     } else {
-        repl(_);
+        repl(props);
     }
 });

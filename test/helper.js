@@ -93,7 +93,7 @@ function entryStream(clusterConfig) {
         for (var i = 0; i < a.length; i += 2) {
             entries.push(ent(a[i], a[i + 1]));
         }
-        return (lib.memStream(entries));
+        return (lib.memstream(entries));
     });
 }
 

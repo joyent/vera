@@ -1,7 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var MemProps = require('./memprops');
+var MemProps = require('../../lib/memory/properties');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 

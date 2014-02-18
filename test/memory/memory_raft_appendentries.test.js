@@ -4,7 +4,7 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var lib = require('../../lib');
-var leveldbraft = require('../leveldbraft');
+var memraft = require('../memory');
 var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
@@ -13,10 +13,9 @@ var raftAppendEntriesTests = require('../share/raft_appendentries_tests.js');
 
 ///--- Globals
 
-var after = nodeunitPlus.after;
 var before = nodeunitPlus.before;
 var createClusterConfig = helper.createClusterConfig;
-var memStream = lib.memStream;
+var memstream = lib.memstream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',
@@ -35,30 +34,29 @@ before(function (cb) {
     var opts = {
         'log': LOG,
         'id': 'raft-0',
-        'clusterConfig': clusterConfig,
-        'dbName': 'raft_appendentries_tests_db'
+        'clusterConfig': clusterConfig
     };
 
     var e = helper.e(clusterConfig);
-    self.e = e;
     //Need to "naturally" add some log entries, commit to state machines, etc.
+    var raft;
     vasync.pipeline({
         funcs: [
             function init(o, subcb) {
-                leveldbraft.raft(opts, function (err, r) {
+                memraft.raft(opts, function (err, r) {
                     if (err) {
                         return (subcb(err));
                     }
-                    self.raft = r;
+                    raft = r;
                     return (subcb(null));
                 });
             },
             function addEntries(o, subcb) {
-                self.raft.appendEntries({
+                raft.appendEntries({
                     'operation': 'appendEntries',
                     'term': 3,
                     'leaderId': 'raft-1',
-                    'entries': memStream([
+                    'entries': memstream([
                         e(0, 0),
                         e(1, 1),
                         e(2, 2),
@@ -68,7 +66,7 @@ before(function (cb) {
                 }, subcb);
             },
             function requestVote(o, subcb) {
-                self.raft.requestVote({
+                raft.requestVote({
                     'operation': 'requestVote',
                     'candidateId': 'raft-1',
                     'term': 3,
@@ -78,11 +76,11 @@ before(function (cb) {
             },
             //To get the leader set.
             function assertLeader(o, subcb) {
-                self.raft.appendEntries({
+                raft.appendEntries({
                     'operation': 'appendEntries',
                     'term': 3,
                     'leaderId': 'raft-1',
-                    'entries': memStream([
+                    'entries': memstream([
                         e(3, 3, 'three')
                     ]),
                     'commitIndex': 2
@@ -90,23 +88,11 @@ before(function (cb) {
             }
         ]
     }, function (err) {
+        self.raft = raft;
+        self.e = e;
         //Set the leaderTimout low...
-        self.raft.leaderTimeout = LOW_LEADER_TIMEOUT;
-        self.raft.messageBus.blackholeUnknown = true;
+        raft.leaderTimeout = LOW_LEADER_TIMEOUT;
+        raft.messageBus.blackholeUnknown = true;
         return (cb(err));
-    });
-});
-
-
-after(function (cb) {
-    var self = this;
-    vasync.pipeline({
-        'funcs': [
-            function closeLevelDb(_, subcb) {
-                self.raft.clog.close(subcb);
-            }
-        ]
-    }, function (err) {
-        cb(err);
     });
 });

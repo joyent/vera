@@ -3,7 +3,7 @@
 var assert = require('assert-plus');
 var events = require('events');
 var error = require('../../lib/error');
-var levelDbIndex = require('../../lib/leveldb');
+var lib = require('../../lib/leveldb');
 var sprintf = require('extsprintf').sprintf;
 var util = require('util');
 
@@ -21,7 +21,6 @@ var util = require('util');
 
 ///--- Globals
 
-var propertyKey = levelDbIndex.internalPropertyKey;
 var COMMIT_INDEX_KEY = 'testStateMachineCommitIndex';
 var DATA_KEY = 'testStateMachineData';
 
@@ -62,7 +61,7 @@ function verifyDb() {
     function persistProps() {
         var batch = [];
         Object.keys(props).forEach(function (k) {
-            batch.push({ 'type': 'put', 'key': propertyKey(k),
+            batch.push({ 'type': 'put', 'key': lib.key.internalProperty(k),
                          'value': props[k] });
         });
         if (batch.length > 0) {
@@ -78,7 +77,7 @@ function verifyDb() {
     }
 
     function loadCommitIndex() {
-        self.db.get(propertyKey(COMMIT_INDEX_KEY),
+        self.db.get(lib.key.internalProperty(COMMIT_INDEX_KEY),
                     function (err, val) {
                         if (err && err.name === 'NotFoundError') {
                             props[COMMIT_INDEX_KEY] = 0;
@@ -92,7 +91,7 @@ function verifyDb() {
     }
 
     function loadData() {
-        self.db.get(propertyKey(DATA_KEY),
+        self.db.get(lib.key.internalProperty(DATA_KEY),
                     function (err, val) {
                         if (err && err.name !== 'NotFoundError') {
                             return (self.emit('error', err));
@@ -157,12 +156,12 @@ StateMachine.prototype.execute = function (entries, cb) {
         var batch = [];
         if (nData !== undefined && nData !== null) {
             batch.push({ 'type': 'put',
-                         'key': propertyKey(DATA_KEY),
+                         'key': lib.key.internalProperty(DATA_KEY),
                          'value': nData });
         }
         if (nCommitIndex !== undefined && nCommitIndex !== null) {
             batch.push({ 'type': 'put',
-                         'key': propertyKey(COMMIT_INDEX_KEY),
+                         'key': lib.key.internalProperty(COMMIT_INDEX_KEY),
                          'value': nCommitIndex });
         }
         self.db.batch(batch, function (err) {

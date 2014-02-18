@@ -1,21 +1,22 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
-var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var helper = require('../helper.js');
 var lib = require('../../lib');
-var memraft = require('../memraft');
+var memraft = require('../memory');
 var nodeunitPlus = require('nodeunit-plus');
 var vasync = require('vasync');
 
 // All the actual tests are here...
-var raftAppendEntriesTests = require('../share/raft_appendentries_tests.js');
+var raftRequestVoteTests = require('../share/raft_requestvote_tests.js');
+
+
 
 ///--- Globals
 
 var before = nodeunitPlus.before;
 var createClusterConfig = helper.createClusterConfig;
-var memStream = lib.memStream;
+var memstream = lib.memstream;
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',
@@ -38,6 +39,7 @@ before(function (cb) {
     };
 
     var e = helper.e(clusterConfig);
+    self.e = e;
     //Need to "naturally" add some log entries, commit to state machines, etc.
     var raft;
     vasync.pipeline({
@@ -56,7 +58,7 @@ before(function (cb) {
                     'operation': 'appendEntries',
                     'term': 3,
                     'leaderId': 'raft-1',
-                    'entries': memStream([
+                    'entries': memstream([
                         e(0, 0),
                         e(1, 1),
                         e(2, 2),
@@ -64,32 +66,10 @@ before(function (cb) {
                     ]),
                     'commitIndex': 2
                 }, subcb);
-            },
-            function requestVote(o, subcb) {
-                raft.requestVote({
-                    'operation': 'requestVote',
-                    'candidateId': 'raft-1',
-                    'term': 3,
-                    'lastLogTerm': 3,
-                    'lastLogIndex': 3
-                }, subcb);
-            },
-            //To get the leader set.
-            function assertLeader(o, subcb) {
-                raft.appendEntries({
-                    'operation': 'appendEntries',
-                    'term': 3,
-                    'leaderId': 'raft-1',
-                    'entries': memStream([
-                        e(3, 3, 'three')
-                    ]),
-                    'commitIndex': 2
-                }, subcb);
             }
         ]
     }, function (err) {
         self.raft = raft;
-        self.e = e;
         //Set the leaderTimout low...
         raft.leaderTimeout = LOW_LEADER_TIMEOUT;
         raft.messageBus.blackholeUnknown = true;

@@ -13,7 +13,7 @@ var e = helper.e();
 var entryStream = helper.entryStream();
 var configEntry = helper.configEntry;
 var createClusterConfig = helper.createClusterConfig;
-var memStream = lib.memStream;
+var memstream = lib.memstream;
 var readClog = helper.readClog;
 var readStream = helper.readStream;
 
@@ -85,7 +85,7 @@ test('append one at a time', function (t) {
                 'commitIndex': 0,
                 'term': 0,
                 //No index, so append!
-                'entries': memStream([ { 'term': 2,
+                'entries': memstream([ { 'term': 2,
                                          'command': 'command-1-2' } ])
             }, function (err, entry) {
                 if (err) {
@@ -103,7 +103,7 @@ test('append one at a time', function (t) {
                 'commitIndex': 0,
                 'term': 0,
                 //No index, so append!
-                'entries': memStream([ { 'term': 2,
+                'entries': memstream([ { 'term': 2,
                                          'command': 'command-2-2' } ])
             }, function (err, entry) {
                 t.equal(2, entry.index);
@@ -562,7 +562,7 @@ test('add first, term > 0', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': memStream([ { 'term': 5,
+                'entries': memstream([ { 'term': 5,
                                          'command': 'command-1-5' } ])
             }, subcb);
         },
@@ -779,7 +779,7 @@ test('append reconfiguration', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 0,
-                'entries': memStream([
+                'entries': memstream([
                     { 'term': 1, //No index, so this is an append.
                       'command': {
                           'to': 'raft',
@@ -836,7 +836,7 @@ test('reconfigure at beginning', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     configEntry(1, 1, cc),
                     e(2, 1),
@@ -891,7 +891,7 @@ test('reconfigure in middle', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     e(1, 1),
                     configEntry(2, 1, cc),
@@ -946,7 +946,7 @@ test('reconfigure at end', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     e(1, 1),
                     e(2, 1),
@@ -1001,7 +1001,7 @@ test('many reconfigures', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     configEntry(1, 1, createClusterConfig('raft-0')),
                     configEntry(2, 1, createClusterConfig('raft-1')),
@@ -1013,7 +1013,7 @@ test('many reconfigures', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(3, 1),
                     configEntry(4, 1, createClusterConfig('raft-2'))
                 ])
@@ -1023,7 +1023,7 @@ test('many reconfigures', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     configEntry(4, 1, createClusterConfig('raft-2')),
                     configEntry(5, 1, createClusterConfig('raft-3')),
                     e(6, 1)
@@ -1084,7 +1084,7 @@ test('earlier config doesn\'t overwrite later', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     e(1, 1),
                     configEntry(2, 1, createClusterConfig('raft-0')),
@@ -1098,7 +1098,7 @@ test('earlier config doesn\'t overwrite later', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(1, 1),
                     configEntry(2, 1, createClusterConfig('raft-0')),
                     e(3, 1)
@@ -1155,7 +1155,7 @@ test('truncate before config', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     e(1, 1),
                     configEntry(2, 1, cc),
@@ -1168,7 +1168,7 @@ test('truncate before config', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 2,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     e(1, 2)
                 ])
@@ -1218,7 +1218,7 @@ test('truncate at latest config', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     e(1, 1),
                     configEntry(2, 1, cc),
@@ -1231,7 +1231,7 @@ test('truncate at latest config', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 2,
-                'entries': memStream([
+                'entries': memstream([
                     e(1, 1),
                     e(2, 2)
                 ])
@@ -1282,7 +1282,7 @@ test('truncate using config as check', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     e(1, 1),
                     configEntry(2, 1, cc),
@@ -1296,7 +1296,7 @@ test('truncate using config as check', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 2,
-                'entries': memStream([
+                'entries': memstream([
                     configEntry(2, 1, cc),
                     e(3, 2)
                 ])
@@ -1348,7 +1348,7 @@ test('truncate many configs', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 1,
-                'entries': memStream([
+                'entries': memstream([
                     e(0, 0),
                     configEntry(1, 1, createClusterConfig('raft-0')),
                     configEntry(2, 1, createClusterConfig('raft-1')),
@@ -1366,7 +1366,7 @@ test('truncate many configs', function (t) {
             self.clog.append({
                 'commitIndex': 0,
                 'term': 2,
-                'entries': memStream([
+                'entries': memstream([
                     configEntry(3, 1, createClusterConfig('raft-2')),
                     e(4, 2)
                 ])

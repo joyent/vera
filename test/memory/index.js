@@ -2,13 +2,13 @@
 
 var assert = require('assert-plus');
 var helper = require('../helper.js');
-var MemLog = require('./memlog');
-var MemProps = require('./memprops');
+var MemLog = require('../../lib/memory/command_log');
+var MemProps = require('../../lib/memory/properties');
 var MessageBus = require('../messagebus');
 var Raft = require('../../lib/raft');
 var sprintf = require('extsprintf').sprintf;
-var Snapshotter = require('./snapshotter');
-var StateMachine = require('./statemachine');
+var Snapshotter = require('../../lib/memory/snapshotter');
+var StateMachine = require('../../lib/memory/state_machine');
 var vasync = require('vasync');
 
 
