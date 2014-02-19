@@ -1,16 +1,12 @@
 ### TODO
 Cluster reconfigurations.
-   - Sending snaphots to new peers.
-   - Figure out what raft should do with no cluster config, and where it
-     gets a snapshot sent to it.
-   - Autopromotion at the "right time" (after it has finished botstrapping from
-     a peer).
    - Testing, testing, testing.
-   - Emit events when cluster config has changed?
    - How does the http message bus know about new peers?
 Tests for client dying and coming back in waaaay later?
+New leader pick up reconfiguration if leader dies during reconfig.
 Raft repl used in testing.
 Read-only peers hanging off a non-leader (?)
+Memory snapshot write to a stream rather than a big json object.
 Add Flease to cliffsnotes.
 "run random" and see what it does.
 command log truncation.
@@ -30,6 +26,9 @@ Leader regularly commits suicide as a chaos-monkey type thing.
 * API design and one api stubbed
 * Other APIs
 * Client
+
+### Other tests
+- Transitioning to candidate in the middle of a snapshot transfer.
 
 ### Examples of plaintext tests:
 cluster of 3
@@ -51,15 +50,6 @@ cluster of 3
 tick until cluster.hasLeader
 new raft-3
 client add raft-3
-
-### Working out request flow for cluster reconfigurations
-Client request to add a peer
-Leader creates Cold,new, sends it through append entries, returns.
-AppendEntries looks at stream as it goes by, sees new configuration, starts
-  using it, commits entry like normally does.
-Leader sees Cold,new committed, kicks off Cnew append entries, returns.
-AppendEntries looks at stream as it goes by, sees new configuration, starts
-  using it, commits entry like normally does
 
 ### Random questions
 How do elections work with Cold,new?

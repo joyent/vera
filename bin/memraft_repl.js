@@ -108,6 +108,6 @@ memraftText.init(props, function (err) {
     }
 });
 
-process.on('uncaughtException', function(err) {
+process.on('uncaughtException', function (err) {
     console.log('Caught exception: ' + err);
 });

@@ -100,8 +100,8 @@ MessageBus.prototype.cancel = function (messageId) {
 
 
 //Causes all messages to be delivered, and the next batch held.  In the real
-// implementation, there shouldn't be any such thing as a 'tick' messages are
-// delivered when they come.
+// implementation, there shouldn't be any such thing as a 'tick'.   Messages are
+// delivered when they arrive.
 MessageBus.prototype.tick = function (cb) {
     assert.func(cb, 'cb');
 
