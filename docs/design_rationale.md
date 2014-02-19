@@ -877,3 +877,23 @@ race as they startup.
 
 Up until now the second way is what we've been doing with the test clusters.  So
 we haven't had any real need to bootstrap one peer from another.
+
+### Install Snapshot API
+
+The raft paper doesn't really go into what the install snapshot API looks like,
+other than saying what the snapshot includes.  Here is the api I settled on:
+
+```
+Req: {
+  'operation': installSnapshot,
+  'snapshot': snapshot
+}
+
+Res: {
+  'success': true/false
+  'index': #
+}
+```
+
+The index is set so that the leader can set the peer match and peer next
+indexes.

@@ -137,15 +137,14 @@ test('add read-only peer, autopromote', function (t) {
             initCluster(),
             function createRaft3(_, subcb) {
                 var c = _.cluster;
-                var clusterConfig = helper.createClusterConfig(
-                    [ 'raft-0', 'raft-1', 'raft-2' ]);
                 memraft.raft({
                     'log': LOG,
                     'id': 'raft-3',
-                    'clusterConfig': clusterConfig,
                     'messageBus': c.messageBus
                 }, function (err, raft3) {
                     _.raft3 = raft3;
+                    //Verify some initial state
+                    t.equal(-1, _.raft3.cluster.clogIndex);
                     subcb(err, raft3);
                 });
             },

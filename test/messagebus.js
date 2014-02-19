@@ -134,6 +134,11 @@ MessageBus.prototype.tick = function (cb) {
             p.appendEntries(m.message, onResponse);
         } else if (m.message.operation === 'requestVote') {
             p.requestVote(m.message, onResponse);
+        } else if (m.message.operation === 'installSnapshot') {
+            p.installSnapshot(m.message, onResponse);
+        } else {
+            throw new Error(m.message.operation +
+                            ' can\'t be sent, unknown operation.');
         }
     });
 };
