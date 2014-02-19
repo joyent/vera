@@ -104,6 +104,16 @@ module.exports = {
 ///--- Operations
 
 var OPS = {
+    // _ -> (cleared)
+    'reset': function (_, cmd, cb) {
+        Object.keys(_).forEach(function (k) {
+            if (k !== 'log') {
+                delete _[k];
+            }
+        });
+        init(_, cb);
+    },
+
     // cluster <# nodes> ->
     //   _.cluster
     //   _.raft-[0..<# nodes - 1>]
@@ -171,11 +181,11 @@ var OPS = {
         cb();
     },
 
-    // tick <messageBus || cluster || rafts || raft-#> <# of ticks>
+    // tick <cluster || messageBus || rafts || raft-#> <# of ticks>
     // default is tick messageBus 1
     'tick': function tick(_, cmd, cb) {
         var parts = cmd.split(' ');
-        var what = parts[0] || 'messageBus';
+        var what = parts[0] || 'cluster';
         var times = parts[1] === undefined ? 1 : parseInt(parts[1], 10);
         function tickNext() {
             function tryNext(err) {
@@ -262,6 +272,44 @@ var OPS = {
         var o = find(_, spath);
         o[name] = newo;
         cb();
+    },
+
+    // assert <operation> <object path> <expected>
+    // operation can be anything that node-assert-plus provides.
+    'assert': function assertIt(_, cmd, cb) {
+        var parts = popString(cmd);
+        var op = parts[0];
+        parts = popString(parts[1]);
+        var path = parts[0];
+        var json = parts[1];
+        var expected;
+
+        function blank(s) {
+            return (s === undefined || s === '');
+        }
+
+        if (blank(op) || blank(path) || blank(json)) {
+            return (cb(new Error(
+                'assert requires operation, path and expected')));
+        }
+
+        try {
+            expected = JSON.parse(json);
+        } catch (e) {
+            return (cb(new Error('json parse failed for ' + json + ": " +
+                                 e.toString())));
+        }
+
+        if ((typeof (assert[op])) !== 'function') {
+            return (cb(new Error(op + ' is not an assert-plus function')));
+        }
+        var err;
+        try {
+            assert[op](expected, find(_, path));
+        } catch (e) {
+            err = e;
+        }
+        cb(err);
     },
 
     // tp --> Same as "tick", then "print"

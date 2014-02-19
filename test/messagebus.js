@@ -12,8 +12,6 @@ var util = require('util');
  * enables one raft object to message to another raft object.
  *
  * For the message bus to deliver messages, you must call tick();
- *
- * Since rafts can take multiple ticks to cb, is this even going to work?
  */
 
 ///--- Functions
