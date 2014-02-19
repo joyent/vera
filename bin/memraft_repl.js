@@ -96,7 +96,7 @@ memraftText.init(props, function (err) {
     if (_opts.filename) {
         props.batch = true;
         memraftText.executeFile(props, _opts.filename, function (err2) {
-            if (err) {
+            if (err2) {
                 console.error(err2);
             }
             if (_opts.repl) {
@@ -106,4 +106,8 @@ memraftText.init(props, function (err) {
     } else {
         repl(props);
     }
+});
+
+process.on('uncaughtException', function(err) {
+    console.log('Caught exception: ' + err);
 });

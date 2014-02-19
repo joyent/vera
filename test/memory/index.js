@@ -21,8 +21,9 @@ function raft(opts, cb) {
     assert.object(opts);
     assert.object(opts.log, 'opts.log');
     assert.string(opts.id, 'opts.id');
-    assert.object(opts.clusterConfig, 'opts.clusterConfig');
+    assert.optionalObject(opts.clusterConfig, 'opts.clusterConfig');
     assert.optionalObject(opts.messageBus, 'opts.messageBus');
+    assert.func(cb, 'cb');
 
     var log = opts.log;
 

@@ -53,19 +53,26 @@ function execute(_, cmds, cb) {
     var i = 0;
     function nextCommand() {
         var command = cmds[i];
-        if (!command) {
+        if (command === undefined) {
             return (cb());
+        }
+        if (command === '' || command.indexOf('#') === 0) {
+            ++i;
+            return (nextCommand());
         }
         var parts = popString(command);
         var op = parts[0];
         if (!OPS[op]) {
-            return (cb(new Error(op + ' is an unknown command')));
+            var error = new Error(op + ' is an unknown command');
+            error.line = i + 1;
+            return (cb(error));
         }
         if (_.batch) {
             console.log('> ' + command);
         }
         OPS[op](_, parts[1], function (err) {
             if (err) {
+                err.line = i + 1;
                 return (cb(err));
             }
             ++i;
@@ -128,7 +135,7 @@ var OPS = {
     },
 
     // raft
-    'raft': function (_, cmd, cb) {
+    'raft': function raft(_, cmd, cb) {
         assert.object(_.log, '_.log');
         assert.object(_.messageBus, '_.messageBus');
 
@@ -137,8 +144,6 @@ var OPS = {
         var opts = {
             'log': _.log,
             'id': id,
-            //TODO: This fails.
-            'clusterConfig': {},
             'messageBus': _.messageBus
         };
         memraft.raft(opts, function (err, r) {
@@ -257,6 +262,15 @@ var OPS = {
         var o = find(_, spath);
         o[name] = newo;
         cb();
-    }
+    },
 
+    // tp --> Same as "tick", then "print"
+    'tp': function tp(_, cmd, cb) {
+        OPS.tick(_, cmd, function (err) {
+            if (err) {
+                return (cb(err));
+            }
+            OPS.print(_, '', cb);
+        });
+    }
 };

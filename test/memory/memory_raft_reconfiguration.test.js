@@ -11,6 +11,7 @@ var vasync = require('vasync');
 
 ///--- Globals
 
+var entryStream = helper.entryStream();
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
     name: 'raft-test',
@@ -62,6 +63,72 @@ function initCluster(opts) {
 
 
 ///--- Tests
+
+test('single raft, not bootstrapped on init', function (t) {
+    vasync.pipeline({
+        arg: {},
+        funcs: [
+            function newRaft(_, subcb) {
+                memraft.raft({
+                    'log': LOG,
+                    'id': 'raft-0'
+                }, function (err, r) {
+                    if (err) {
+                        return (subcb(err));
+                    }
+                    _.raft = r;
+                    subcb();
+                });
+            },
+            function tryTick(_, subcb) {
+                t.equal('follower', _.raft.state);
+                _.raft.tick();
+                var newTimeout = _.raft.leaderTimeout;
+                _.raft.tick();
+                //Ticks should only reset a raft instance that has no
+                // configuration.
+                t.equal(newTimeout, _.raft.leaderTimeout);
+                subcb();
+            },
+            function tryAppend(_, subcb) {
+                _.raft.appendEntries({
+                    'term': 0,
+                    'commitIndex': 0,
+                    'leaderId': 'raft-1',
+                    'entries': entryStream([ 0, 0 ])
+                }, function (err) {
+                    if (!err) {
+                        t.fail();
+                        return (subcb());
+                    }
+                    t.equal('NotBootstrappedError', err.name);
+                    subcb();
+                });
+            },
+            function tryRequestVote(_, subcb) {
+                _.raft.requestVote({
+                    'term': 0,
+                    'candidateId': 'raft-1',
+                    'lastLogIndex': 0,
+                    'lastLogTerm': 0
+                }, function (err) {
+                    if (!err) {
+                        t.fail();
+                        return (subcb());
+                    }
+                    t.equal('InvalidPeerError', err.name);
+                    subcb();
+                });
+            }
+        ]
+    }, function (err) {
+        if (err) {
+            t.fail(err.toString());
+        }
+        t.done();
+    });
+});
+
 
 test('add read-only peer, autopromote', function (t) {
     vasync.pipeline({
