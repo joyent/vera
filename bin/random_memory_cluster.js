@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');

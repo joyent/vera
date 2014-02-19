@@ -1,20 +1,25 @@
+#!/usr/bin/env node
 // Copyright (c) 2014, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
 var getopt = require('posix-getopt');
-var memraftText = require('../test/memory/memory_raft_text');
+var memraftText = require('../test/repl/memory_raft');
 var path = require('path');
 var readline = require('readline');
 
+
+
+///--- Globals
+
 var LOG = bunyan.createLogger({
     level: (process.env.LOG_LEVEL || 'fatal'),
-    name: 'random-memory-raft',
+    name: 'memraft-repl',
     stream: process.stdout
 });
 
 
-///--- Opts parsing
 
+///--- Opts parsing
 
 function parseOptions() {
     var option;

@@ -1,0 +1,3 @@
+raft
+tick raft-0 100
+assert equal raft-0.cluster.clogIndex -1
