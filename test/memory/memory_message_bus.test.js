@@ -1,7 +1,7 @@
 // Copyright (c) 2013, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var MessageBus = require('./messagebus');
+var lib = require('../../lib/memory');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
@@ -53,7 +53,7 @@ test('request/reply', function (t) {
     var peers = getTopology(2);
     var funcs = [
         function init(_, subcb) {
-            mb = new MessageBus({ 'log': LOG, 'peers': peers });
+            mb = new lib.MessageBus({ 'log': LOG, 'peers': peers });
             mb.on('ready', subcb);
         },
         function reqrep(_, subcb) {
@@ -95,7 +95,7 @@ test('unknown peer', function (t) {
     var peers = getTopology(2);
     var funcs = [
         function init(_, subcb) {
-            mb = new MessageBus({ 'log': LOG, 'peers': peers });
+            mb = new lib.MessageBus({ 'log': LOG, 'peers': peers });
             mb.on('ready', subcb);
         },
         function causeError(_, subcb) {
@@ -123,7 +123,7 @@ test('blackhole unknown', function (t) {
     var peers = getTopology(2);
     var funcs = [
         function init(_, subcb) {
-            mb = new MessageBus({ 'log': LOG, 'peers': peers,
+            mb = new lib.MessageBus({ 'log': LOG, 'peers': peers,
                                   'blackholeUnknown': true });
             mb.on('ready', subcb);
         },

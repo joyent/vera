@@ -4,7 +4,6 @@ var assert = require('assert-plus');
 var helper = require('../helper.js');
 var lib = require('../../lib');
 var memlib = require('../../lib/memory');
-var MessageBus = require('../messagebus');
 var sprintf = require('extsprintf').sprintf;
 var vasync = require('vasync');
 
@@ -33,7 +32,7 @@ function raft(opts, cb) {
         funcs: [
             function initMessageBus(_, subcb) {
                 if (_.messageBus === undefined) {
-                    _.messageBus = new MessageBus({ 'log': log });
+                    _.messageBus = new memlib.MessageBus({ 'log': log });
                     _.messageBus.on('ready', subcb);
                 } else {
                     subcb();
@@ -194,7 +193,7 @@ function cluster(opts, cb) {
         funcs: [
             function initMessageBus(_, subcb) {
                 if (c.messageBus === undefined) {
-                    c.messageBus = new MessageBus({ 'log': log });
+                    c.messageBus = new memlib.MessageBus({ 'log': log });
                     c.messageBus.on('ready', subcb);
                 } else {
                     subcb();

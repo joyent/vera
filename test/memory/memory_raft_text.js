@@ -3,8 +3,8 @@
 var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var fs = require('fs');
+var memlib = require('../../lib/memory');
 var memraft = require('../memory');
-var MessageBus = require('../messagebus');
 var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
@@ -89,7 +89,7 @@ function init(_, cb) {
 
     _.nextRaft = 0;
     _.raftIds = [];
-    _.messageBus = new MessageBus({ 'log': _.log });
+    _.messageBus = new memlib.MessageBus({ 'log': _.log });
     _.messageBus.on('ready', cb);
 }
 
@@ -296,7 +296,7 @@ var OPS = {
         try {
             expected = JSON.parse(json);
         } catch (e) {
-            return (cb(new Error('json parse failed for ' + json + ": " +
+            return (cb(new Error('json parse failed for ' + json + ': ' +
                                  e.toString())));
         }
 

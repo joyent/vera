@@ -4,7 +4,7 @@ var assert = require('assert-plus');
 var fs = require('fs');
 var helper = require('../helper.js');
 var lib = require('../../lib/leveldb');
-var MessageBus = require('../messagebus');
+var memlib = require('../../lib/memory');
 var path = require('path');
 var Raft = require('../../lib/raft');
 var StateMachine = require('./state_machine');
@@ -62,7 +62,7 @@ function raft(opts, cb) {
             },
             function initMessageBus(_, subcb) {
                 if (_.messageBus === undefined) {
-                    _.messageBus = new MessageBus({ 'log': log });
+                    _.messageBus = new memlib.MessageBus({ 'log': log });
                     _.messageBus.on('ready', subcb);
                 } else {
                     subcb();
