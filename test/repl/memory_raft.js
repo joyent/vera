@@ -230,6 +230,7 @@ var OPS = {
 
                 //This is synchronous
                 var metCondition = true;
+                //This is horribly inefficent.  But this is just a repl...
                 OPS['assert'](_, assertCommand, function (err) {
                     if (err) {
                         lastAssertError = err;
@@ -402,9 +403,11 @@ var OPS = {
     //   to can be:
     //     raft-# - Send to a specific raft instance
     //     leader - Send to whoever is the leader at the time
+    //
+    // The _.lastResponse is only set after the cluster has been ticked.  This
+    // returns immediately after the request has been enqueued.
     'request': function request(_, cmd, cb) {
         assert.object(_, '_');
-        assert.object(_.cluster, '_.cluster');
 
         var parts = popString(cmd);
         var to = parts[0];
@@ -417,6 +420,8 @@ var OPS = {
         //Locate raft...
         var toRaft;
         if (to === 'leader') {
+            assert.object(_.cluster, '_.cluster');
+
             Object.keys(_.cluster.peers).forEach(function (id) {
                 if (_.cluster.peers[id].state === 'leader') {
                     toRaft = _.cluster.peers[id];
@@ -426,7 +431,7 @@ var OPS = {
                 return (cb(new Error('no leader elected')));
             }
         } else {
-            toRaft = _.cluster.peers[to];
+            toRaft = _.messageBus.peers[to];
             if (toRaft === undefined) {
                 return (cb(new Error('no leader elected')));
             }
@@ -449,37 +454,20 @@ var OPS = {
         }
 
         var calledBack = false;
-        var error;
-        var response;
-        function onResponse(err, res) {
+        function onResponse(err, response) {
             if (!calledBack) {
-                error = err;
-                response = res;
+                _.console(response);
+                _.lastResponse = response;
+                _.lastError = err;
+                //In case this was a reconfigure...
+                _.cluster.refreshPeers();
                 calledBack = true;
             }
         }
 
+        delete _.lastResponse;
+        delete _.lastError;
         toRaft.clientRequest(command, onResponse);
-
-        //Tick the cluster until we get a callback... this may change where we
-        // freeze after the client request.
-        var i = 0;
-        function nextTick() {
-            if (calledBack) {
-                _.lastResponse = response;
-                _.console(response);
-                //In case this was a reconfigure...
-                _.cluster.refreshPeers();
-                return (cb(error));
-            }
-            if (i === 100) {
-                return (cb(new Error('no client response after 100 ticks')));
-            }
-            _.cluster.tick(function () {
-                ++i;
-                nextTick();
-            });
-        }
-        nextTick();
+        return (cb());
     }
 };

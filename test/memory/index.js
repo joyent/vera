@@ -146,14 +146,23 @@ function messageBusSummary(m) {
         Object.keys(m.messages).length === 0 ? ' (none)' : '');
     Object.keys(m.messages).forEach(function (mi) {
         var me = m.messages[mi];
-        var prefix = sprintf('%s -> %s: term %3d', me.from, me.to,
-                             me.message.term);
+        var prefix = sprintf('%s -> %s', me.from, me.to);
         if (me.message.operation === 'requestVote') {
-            s += sprintf('  reqVote %s, logIndex: %3d, logTerm: %3d\n', prefix,
-                         me.message.lastLogIndex, me.message.lastLogTerm);
+            s += sprintf(
+                '  reqVote %s: term %3d, logIndex: %3d, logTerm: %3d\n',
+                prefix, me.message.term, me.message.lastLogIndex,
+                me.message.lastLogTerm);
+        } else if (me.message.operation === 'appendEntries') {
+            s += sprintf(
+                '  appEntr %s: term %3d, leader: %s, commitIndex: %3d\n',
+                prefix, me.message.term, me.message.leaderId,
+                me.message.commitIndex);
+        } else if (me.message.operation === 'installSnapshot') {
+            s += sprintf(
+                '  intSnap %s\n', prefix);
         } else {
-            s += sprintf('  appEntr %s, leader: %s, commitIndex: %3d\n',
-                         prefix, me.message.leaderId, me.message.commitIndex);
+            s += sprintf(
+                ' unknown message: ', me);
         }
     });
     return (s);

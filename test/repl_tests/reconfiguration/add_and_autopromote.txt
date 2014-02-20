@@ -2,6 +2,7 @@ cluster 3 electLeader
 raft
 assert equal raft-3.cluster.clogIndex -1
 request leader { "to": "raft", "execute": "addPeer", "id": "raft-3", "autoPromote": true }
+tick cluster until ok lastResponse
 assert equal lastResponse.success true
 assert number lastResponse.entryTerm
 assert number lastResponse.entryIndex
