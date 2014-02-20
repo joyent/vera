@@ -1,0 +1,21 @@
+# Make raft-0 the leader
+cluster 3
+set raft-0.leaderTimeout 1
+tick cluster until equal raft-1.leaderId "raft-0"
+tick cluster until equal raft-2.leaderId "raft-0"
+assert equal raft-1.properties.props.currentTerm 1
+# Now break raft-0 off the cluster and make raft-1 the leader
+partition raft-0
+set raft-1.leaderTimeout 1
+tick cluster until equal raft-2.leaderId "raft-1"
+# Make a client request between raft-1 and raft-2
+request raft-1 "foo"
+tick cluster until equal raft-2.stateMachine.data "foo"
+# Verify raft-0 doesn't have the "foo" data
+tick cluster 100
+assert equal raft-0.stateMachine.data undefined
+# Bring raft-0 back in and make sure it catches up
+unpartition raft-0
+tick cluster until equal raft-0.leaderId "raft-1"
+tick cluster until equal raft-0.stateMachine.data "foo"
+assert equal raft-1.properties.props.currentTerm 2

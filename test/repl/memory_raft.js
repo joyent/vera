@@ -469,5 +469,23 @@ var OPS = {
         delete _.lastError;
         toRaft.clientRequest(command, onResponse);
         return (cb());
+    },
+
+    // partition <raft-#>
+    'partition': function partition(_, cmd, cb) {
+        if (_.messageBus.peers[cmd] === undefined) {
+            return (cb(new Error('instance unknwn: ' + cmd)));
+        }
+        _.messageBus.partition(cmd);
+        cb();
+    },
+
+    // unpartitions <raft-#>
+    'unpartition': function unpartition(_, cmd, cb) {
+        if (_.messageBus.peers[cmd] === undefined) {
+            return (cb(new Error('instance unknwn: ' + cmd)));
+        }
+        _.messageBus.unpartition(cmd);
+        cb();
     }
 };
