@@ -3,7 +3,7 @@
 
 var bunyan = require('bunyan');
 var getopt = require('posix-getopt');
-var memraftText = require('../test/repl/memory_raft');
+var memraft = require('../test/repl/memory_raft');
 var path = require('path');
 var readline = require('readline');
 
@@ -84,7 +84,7 @@ function repl(p) {
                 command === 'exit') {
                 rl.close();
             } else {
-                memraftText.execute(p, [ command ], function (err) {
+                memraft.execute(p, [ command ], function (err) {
                     if (err) {
                         console.error(err);
                     }
@@ -96,11 +96,11 @@ function repl(p) {
     doNext();
 }
 
-memraftText.init(props, function (err) {
+memraft.init(props, function (err) {
     handleError(err);
     if (_opts.filename) {
         props.batch = true;
-        memraftText.executeFile(props, _opts.filename, function (err2) {
+        memraft.executeFile(props, _opts.filename, function (err2) {
             if (err2) {
                 console.error(err2);
             }

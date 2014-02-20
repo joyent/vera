@@ -5,7 +5,6 @@ var bunyan = require('bunyan');
 var fs = require('fs');
 var memlib = require('../../lib/memory');
 var memraft = require('../memory');
-var test = require('nodeunit-plus').test;
 var vasync = require('vasync');
 
 
@@ -65,14 +64,16 @@ function execute(_, cmds, cb) {
         if (!OPS[op]) {
             var error = new Error(op + ' is an unknown command');
             error.line = i + 1;
+            error.text = command;
             return (cb(error));
         }
         if (_.batch) {
-            console.log('> ' + command);
+            _.console('> ' + command);
         }
         OPS[op](_, parts[1], function (err) {
             if (err) {
                 err.line = i + 1;
+                err.text = command;
                 return (cb(err));
             }
             ++i;
@@ -91,6 +92,15 @@ function init(_, cb) {
     _.raftIds = [];
     _.messageBus = new memlib.MessageBus({ 'log': _.log });
     _.messageBus.on('ready', cb);
+    _.console = function () {
+        if (!_.silent) {
+            var args = [];
+            for (var i = 0; i < arguments.length; ++i) {
+                args.push(arguments[i]);
+            }
+            console.log.apply(null, args);
+        }
+    };
 }
 
 
@@ -139,7 +149,7 @@ var OPS = {
                 _.raftIds.push(r.id);
             });
             _.nextRaft = _.nextRaft + size;
-            console.log(Object.keys(_.cluster.peers));
+            _.console(Object.keys(_.cluster.peers));
             return (cb());
         });
     },
@@ -162,7 +172,7 @@ var OPS = {
             }
             _.raftIds.push(id);
             _[id] = r;
-            console.log(id);
+            _.console(id);
             cb();
         });
 
@@ -235,16 +245,16 @@ var OPS = {
     'ls': function ls(_, cmd, cb) {
         var o = find(_, cmd);
         if (o === undefined || (typeof (o) !== 'object')) {
-            console.log('value: ' + o);
+            _.console('value: ' + o);
         } else {
-            console.log(Object.keys(o).join('\n'));
+            _.console(Object.keys(o).join('\n'));
         }
         cb();
     },
 
     // get <object path>
     'get': function get(_, cmd, cb) {
-        console.log(find(_, cmd));
+        _.console(find(_, cmd));
         cb();
     },
 
