@@ -124,17 +124,19 @@ var OPS = {
         init(_, cb);
     },
 
-    // cluster <# nodes> ->
+    // cluster <# nodes> [electLeader] ->
     //   _.cluster
     //   _.raft-[0..<# nodes - 1>]
     'cluster': function cluster(_, cmd, cb) {
         assert.object(_.messageBus, '_.messageBus');
 
-        var size = parseInt(cmd, 10) || 3;
+        var parts = cmd.split(' ');
+        var size = parseInt(parts[0], 10) || 3;
+        var electLeader = (parts[1] === 'electLeader');
         var opts = {
             'log': _.log,
             'size': size,
-            'electLeader': false,
+            'electLeader': electLeader,
             'messageBus': _.messageBus,
             'idOffset': _.nextRaft
         };
@@ -267,7 +269,8 @@ var OPS = {
         try {
             newo = JSON.parse(json);
         } catch (e) {
-            return (cb(e));
+            return (cb(new Error('json parse failed for ' + json + ': ' +
+                                 e.toString())));
         }
 
         //Pop off the last .x
@@ -330,5 +333,88 @@ var OPS = {
             }
             OPS.print(_, '', cb);
         });
+    },
+
+    // try <and other command> --> _.lastErr
+    'try': function tryIt(_, cmd, cb) {
+        var parts = popString(cmd);
+        var op = parts[0];
+        var command = parts[1];
+        if (OPS[op] === undefined) {
+            return (cb(new Error(op + ' is an unknown command')));
+        }
+        _.lastErr = undefined;
+        OPS[op](_, command, function (err) {
+            if (err) {
+                _.lastErr = err;
+            }
+            cb();
+        });
+    },
+
+    // request <json request> -> _.lastResponse
+    'request': function request(_, cmd, cb) {
+        assert.object(_, '_');
+        assert.object(_.cluster, '_.cluster');
+
+        //Locate leader
+        var leader;
+        Object.keys(_.cluster.peers).forEach(function (id) {
+            if (_.cluster.peers[id].state === 'leader') {
+                leader = _.cluster.peers[id];
+            }
+        });
+        if (leader === undefined) {
+            return (cb(new Error('no leader elected')));
+        }
+
+        //Make the request
+        var command;
+        try {
+            command = JSON.parse(cmd);
+        } catch (e) {
+            return (cb(new Error('json parse failed for ' + cmd + ': ' +
+                                 e.toString())));
+        }
+
+        //Wrap if there isn't a command...
+        if (!command.command) {
+            command = {
+                'command': command
+            };
+        }
+
+        var calledBack = false;
+        var error;
+        var response;
+        function onResponse(err, res) {
+            if (!calledBack) {
+                error = err;
+                response = res;
+                calledBack = true;
+            }
+        }
+
+        leader.clientRequest(command, onResponse);
+
+        var i = 0;
+        function nextTick() {
+            if (calledBack) {
+                _.lastResponse = response;
+                return (cb(error));
+            }
+            if (i === 100) {
+                return (cb(new Error('no client response after 100 ticks')));
+            }
+            _.cluster.tick(function () {
+                ++i;
+                nextTick();
+            });
+        }
+        nextTick();
+
+        //Tick the cluster until we get a callback... this may change where we
+        // freeze after the client request.
+        //START HERE
     }
 };

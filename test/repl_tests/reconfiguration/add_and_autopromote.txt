@@ -1,0 +1,12 @@
+cluster 3 electLeader
+raft
+assert equal raft-3.cluster.clogIndex -1
+request { "to": "raft", "execute": "addPeer", "id": "raft-3", "autoPromote": true }
+assert deepEqual raft-0.cluster.allIds [ "raft-0", "raft-1", "raft-2", "raft-3" ]
+assert deepEqual raft-1.cluster.allIds [ "raft-0", "raft-1", "raft-2", "raft-3" ]
+assert deepEqual raft-2.cluster.allIds [ "raft-0", "raft-1", "raft-2", "raft-3" ]
+assert deepEqual raft-3.cluster.allIds [ "raft-0", "raft-1", "raft-2", "raft-3" ]
+assert deepEqual raft-0.cluster.votingIds [ "raft-0", "raft-1", "raft-2", "raft-3" ]
+assert deepEqual raft-1.cluster.votingIds [ "raft-0", "raft-1", "raft-2", "raft-3" ]
+assert deepEqual raft-2.cluster.votingIds [ "raft-0", "raft-1", "raft-2", "raft-3" ]
+assert deepEqual raft-3.cluster.votingIds [ "raft-0", "raft-1", "raft-2", "raft-3" ]

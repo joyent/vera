@@ -2,9 +2,7 @@
 Cluster reconfigurations.
    - Testing, testing, testing.
    - How does the http message bus know about new peers?
-Tests for client dying and coming back in waaaay later?
 New leader pick up reconfiguration if leader dies during reconfig.
-Raft repl used in testing.
 Read-only peers hanging off a non-leader (?)
 Memory snapshot write to a stream rather than a big json object.
 Add Flease to cliffsnotes.
@@ -20,6 +18,7 @@ Tools:
   - add/remove/promote a new peer
   - force leader to step down
 Leader regularly commits suicide as a chaos-monkey type thing.
+Doc on using the memory raft repl (and tests).
 
 ### Overall todo:
 * Solidly tested Raft Core
@@ -29,6 +28,7 @@ Leader regularly commits suicide as a chaos-monkey type thing.
 
 ### Other tests
 - Transitioning to candidate in the middle of a snapshot transfer.
+- Client dying and coming back in waaaay later
 
 ### Examples of plaintext tests:
 cluster of 3

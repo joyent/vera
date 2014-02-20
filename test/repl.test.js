@@ -26,7 +26,6 @@ var LOG = bunyan.createLogger({
 
 
 
-
 ///--- Helpers
 
 //Thank you stack overflow...
@@ -56,8 +55,9 @@ function makeTest(filename) {
             }
             memraft.executeFile(props, filename, function (err2) {
                 if (err2) {
-                    console.error('Failed at line ' + err2.line);
-                    console.error('Line Text: ' + err2.text);
+                    console.error('' + err2);
+                    console.error('At line: ' + err2.line);
+                    console.error('Text: ' + err2.text);
                     console.error();
                     console.error('Get a repl at the error:');
                     console.error('./bin/memraft_repl.js -r -f ' +
@@ -88,9 +88,6 @@ for (var i = 0; i < files.length; ++i) {
     testName = testName.replace('.txt', '');
     testName = testName.replace(/\//g, ': ');
     testName = testName.replace(/_/g, ' ');
-
-    //This is for the main below...
-    tests.push({ 'file': f, 'name': testName });
 
     test(testName, makeTest(f));
 }
