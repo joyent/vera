@@ -201,7 +201,7 @@ var OPS = {
     // tick <cluster || messageBus || rafts || raft-#> [clause]
     //  [clause] can be:
     //    <# of ticks>
-    //    until <object path> <equals> (uses assert.deepEqual)
+    //    until <assert command> (see assert)
     // default is tick cluster 1
     'tick': function tick(_, cmd, cb) {
         var parts = popString(cmd);
@@ -215,32 +215,27 @@ var OPS = {
             finishCondition = function () {
                 return (ticks-- === 0);
             };
-        //Tick until some condition
+        //Tick until some assert condition
         } else if (parts[1].indexOf('until ') === 0) {
             ticks = 100;
-            parts = popString(parts[1].replace('until ', ''));
-            var path = parts[0];
-            var json = parts[1];
-            var eObject;
-            try {
-                eObject = JSON.parse(json);
-            } catch (e) {
-                return (cb(new Error('json parse failed for ' + json + ': ' +
-                                     e.toString())));
-            }
+            var lastAssertError;
+            var assertCommand = parts[1].replace('until ', '');
             finishCondition = function () {
                 if (ticks-- === 0) {
-                    error = new Error(
-                        'until clause didn\'t finish in 100 ticks');
+                    //We pass the error up in case it's a problem with their
+                    // assert function.
+                    error = lastAssertError;
                     return (true);
                 }
 
+                //This is synchronous
                 var metCondition = true;
-                try {
-                    assert.deepEqual(eObject, find(_, path));
-                } catch (e) {
-                    metCondition = false;
-                }
+                OPS['assert'](_, assertCommand, function (err) {
+                    if (err) {
+                        lastAssertError = err;
+                    }
+                    metCondition = (err === undefined);
+                });
                 return (metCondition);
             };
         } else {
@@ -336,6 +331,7 @@ var OPS = {
 
     // assert <operation> <object path> <expected>
     // operation can be anything that node-assert-plus provides.
+    // expected can be any json object or the string 'undefined'
     'assert': function assertIt(_, cmd, cb) {
         var parts = popString(cmd);
         var op = parts[0];
@@ -349,7 +345,8 @@ var OPS = {
                 'assert requires operation and path')));
         }
 
-        if (!blank(json)) {
+        //Explicitly look for the 'undefined' string.
+        if (json !== 'undefined' && !blank(json)) {
             try {
                 expected = JSON.parse(json);
             } catch (e) {
@@ -384,7 +381,7 @@ var OPS = {
         });
     },
 
-    // try <and other command> --> _.lastErr
+    // try <and other command> --> _.lastError
     'try': function tryIt(_, cmd, cb) {
         var parts = popString(cmd);
         var op = parts[0];
@@ -392,10 +389,10 @@ var OPS = {
         if (OPS[op] === undefined) {
             return (cb(new Error(op + ' is an unknown command')));
         }
-        _.lastErr = undefined;
+        _.lastError = undefined;
         OPS[op](_, command, function (err) {
             if (err) {
-                _.lastErr = err;
+                _.lastError = err;
             }
             cb();
         });

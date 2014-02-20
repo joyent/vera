@@ -1,0 +1,9 @@
+cluster 3
+set raft-0.leaderTimeout 1
+tick cluster until equal raft-1.leaderId "raft-0"
+try request raft-1 "foo"
+assert equal lastError.name "NotLeaderError"
+assert equal lastResponse.success false
+assert equal lastResponse.leaderId "raft-0"
+assert equal lastResponse.entryTerm undefined
+assert equal lastResponse.entryId undefined
