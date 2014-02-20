@@ -84,6 +84,16 @@ function raft(opts, cb) {
 }
 
 
+function refreshPeers(c) {
+    var self = c || this;
+    Object.keys(self.messageBus.peers).forEach(function (id) {
+        if (self.peers[id] === undefined) {
+            self.peers[id] = self.messageBus.peers[id];
+        }
+    });
+}
+
+
 function getLeader(c) {
     var self = c || this;
     var leader;
@@ -178,6 +188,7 @@ function cluster(opts, cb) {
     var c = {
         'messageBus': opts.messageBus,
         'peers': {},
+        'refreshPeers': refreshPeers,
         'getLeader': getLeader,
         'tick': tick,
         'toString': clusterToString

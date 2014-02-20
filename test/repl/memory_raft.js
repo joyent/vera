@@ -34,6 +34,11 @@ function find(o, s) {
 }
 
 
+function blank(s) {
+    return (s === undefined || s === '');
+}
+
+
 
 //--- Functions
 
@@ -193,23 +198,63 @@ var OPS = {
         cb();
     },
 
-    // tick <cluster || messageBus || rafts || raft-#> <# of ticks>
-    // default is tick messageBus 1
+    // tick <cluster || messageBus || rafts || raft-#> [clause]
+    //  [clause] can be:
+    //    <# of ticks>
+    //    until <object path> <equals> (uses assert.deepEqual)
+    // default is tick cluster 1
     'tick': function tick(_, cmd, cb) {
-        var parts = cmd.split(' ');
+        var parts = popString(cmd);
         var what = parts[0] || 'cluster';
-        var times = parts[1] === undefined ? 1 : parseInt(parts[1], 10);
+        var finishCondition;
+        var error;
+        //Tick for some number
+        if (blank(parts[1]) || !isNaN(parseInt(parts[1], 10))) {
+            var ticks = blank(parts[1]) ? 1 : parseInt(parts[1], 10);
+            finishCondition = function () {
+                return (ticks-- === 0);
+            }
+        //Tick until some condition
+        } else if (parts[1].indexOf('until ') === 0) {
+            var ticks = 100;
+            parts = popString(parts[1].replace('until ', ''));
+            var path = parts[0];
+            var json = parts[1];
+            var eObject;
+            try {
+                eObject = JSON.parse(json);
+            } catch (e) {
+                return (cb(new Error('json parse failed for ' + json + ': ' +
+                                     e.toString())));
+            }
+            finishCondition = function () {
+                if (ticks-- === 0) {
+                    error = new Error(
+                        'until clause didn\'t finish in 100 ticks');
+                    return (true);
+                }
+
+                var metCondition = true;
+                try {
+                    assert.deepEqual(eObject, find(_, path));
+                } catch (e) {
+                    metCondition = false;
+                }
+                return (metCondition);
+            }
+        } else {
+            return (cb(new Error('invalid tick clause: ' + parts[1])));
+        }
         function tickNext() {
             function tryNext(err) {
                 if (err) {
                     return (cb(err));
                 }
-                --times;
                 tickNext();
             }
 
-            if (times === 0) {
-                return (cb());
+            if (finishCondition()) {
+                return (cb(error));
             }
 
             switch (what) {
@@ -297,10 +342,6 @@ var OPS = {
         var path = parts[0];
         var json = parts[1];
         var expected;
-
-        function blank(s) {
-            return (s === undefined || s === '');
-        }
 
         if (blank(op) || blank(path)) {
             return (cb(new Error(
@@ -411,6 +452,8 @@ var OPS = {
             if (calledBack) {
                 _.lastResponse = response;
                 _.console(response);
+                //In case this was a reconfigure...
+                _.cluster.refreshPeers();
                 return (cb(error));
             }
             if (i === 100) {

@@ -1,0 +1,5 @@
+cluster 3
+set raft-0.leaderTimeout 1
+tick cluster until raft-0.state "leader"
+assert equal raft-1.state "follower"
+assert equal raft-2.state "follower"
