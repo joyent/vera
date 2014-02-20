@@ -256,7 +256,8 @@ var OPS = {
 
     // get <object path>
     'get': function get(_, cmd, cb) {
-        _.console(find(_, cmd));
+        //Always print to the console here.
+        console.log(find(_, cmd));
         cb();
     },
 
@@ -301,16 +302,18 @@ var OPS = {
             return (s === undefined || s === '');
         }
 
-        if (blank(op) || blank(path) || blank(json)) {
+        if (blank(op) || blank(path)) {
             return (cb(new Error(
-                'assert requires operation, path and expected')));
+                'assert requires operation and path')));
         }
 
-        try {
-            expected = JSON.parse(json);
-        } catch (e) {
-            return (cb(new Error('json parse failed for ' + json + ': ' +
-                                 e.toString())));
+        if (!blank(json)) {
+            try {
+                expected = JSON.parse(json);
+            } catch (e) {
+                return (cb(new Error('json parse failed for ' + json + ': ' +
+                                     e.toString())));
+            }
         }
 
         if ((typeof (assert[op])) !== 'function') {
@@ -318,7 +321,11 @@ var OPS = {
         }
         var err;
         try {
-            assert[op](expected, find(_, path));
+            if (expected !== undefined) {
+                assert[op](expected, find(_, path));
+            } else {
+                assert[op](find(_, path));
+            }
         } catch (e) {
             err = e;
         }
@@ -397,10 +404,13 @@ var OPS = {
 
         leader.clientRequest(command, onResponse);
 
+        //Tick the cluster until we get a callback... this may change where we
+        // freeze after the client request.
         var i = 0;
         function nextTick() {
             if (calledBack) {
                 _.lastResponse = response;
+                _.console(response);
                 return (cb(error));
             }
             if (i === 100) {
@@ -412,9 +422,5 @@ var OPS = {
             });
         }
         nextTick();
-
-        //Tick the cluster until we get a callback... this may change where we
-        // freeze after the client request.
-        //START HERE
     }
 };

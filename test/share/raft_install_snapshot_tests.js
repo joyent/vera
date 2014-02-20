@@ -47,7 +47,12 @@ test('apply snapshot to new', function (t) {
             function (_, subcb) {
                 newRaft.installSnapshot({
                     'snapshot': snapshot
-                }, subcb);
+                }, function (err, result) {
+                    t.ok(result.success);
+                    //The configuration + the 4 client requests above.
+                    t.equal(4, result.index);
+                    subcb(err);
+                });
             },
             function (_, subcb) {
                 //Check everything we can with the newraft instance.
