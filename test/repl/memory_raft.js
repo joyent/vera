@@ -208,15 +208,16 @@ var OPS = {
         var what = parts[0] || 'cluster';
         var finishCondition;
         var error;
+        var ticks;
         //Tick for some number
         if (blank(parts[1]) || !isNaN(parseInt(parts[1], 10))) {
-            var ticks = blank(parts[1]) ? 1 : parseInt(parts[1], 10);
+            ticks = blank(parts[1]) ? 1 : parseInt(parts[1], 10);
             finishCondition = function () {
                 return (ticks-- === 0);
-            }
+            };
         //Tick until some condition
         } else if (parts[1].indexOf('until ') === 0) {
-            var ticks = 100;
+            ticks = 100;
             parts = popString(parts[1].replace('until ', ''));
             var path = parts[0];
             var json = parts[1];
@@ -241,7 +242,7 @@ var OPS = {
                     metCondition = false;
                 }
                 return (metCondition);
-            }
+            };
         } else {
             return (cb(new Error('invalid tick clause: ' + parts[1])));
         }
@@ -400,20 +401,38 @@ var OPS = {
         });
     },
 
-    // request <json request> -> _.lastResponse
+    // request <to> <json request> -> _.lastResponse
+    //   to can be:
+    //     raft-# - Send to a specific raft instance
+    //     leader - Send to whoever is the leader at the time
     'request': function request(_, cmd, cb) {
         assert.object(_, '_');
         assert.object(_.cluster, '_.cluster');
 
-        //Locate leader
-        var leader;
-        Object.keys(_.cluster.peers).forEach(function (id) {
-            if (_.cluster.peers[id].state === 'leader') {
-                leader = _.cluster.peers[id];
+        var parts = popString(cmd);
+        var to = parts[0];
+        cmd = parts[1];
+
+        if (blank(to) || blank(cmd)) {
+            return (cb(new Error('to and json request are required')));
+        }
+
+        //Locate raft...
+        var toRaft;
+        if (to === 'leader') {
+            Object.keys(_.cluster.peers).forEach(function (id) {
+                if (_.cluster.peers[id].state === 'leader') {
+                    toRaft = _.cluster.peers[id];
+                }
+            });
+            if (toRaft === undefined) {
+                return (cb(new Error('no leader elected')));
             }
-        });
-        if (leader === undefined) {
-            return (cb(new Error('no leader elected')));
+        } else {
+            toRaft = _.cluster.peers[to];
+            if (toRaft === undefined) {
+                return (cb(new Error('no leader elected')));
+            }
         }
 
         //Make the request
@@ -443,7 +462,7 @@ var OPS = {
             }
         }
 
-        leader.clientRequest(command, onResponse);
+        toRaft.clientRequest(command, onResponse);
 
         //Tick the cluster until we get a callback... this may change where we
         // freeze after the client request.

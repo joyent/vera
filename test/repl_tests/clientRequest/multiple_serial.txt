@@ -1,0 +1,13 @@
+cluster 3 electLeader
+request leader "foo"
+tick cluster until raft-0.stateMachine.data "foo"
+tick cluster until raft-1.stateMachine.data "foo"
+tick cluster until raft-2.stateMachine.data "foo"
+request leader "bar"
+tick cluster until raft-0.stateMachine.data "bar"
+tick cluster until raft-1.stateMachine.data "bar"
+tick cluster until raft-2.stateMachine.data "bar"
+request leader "baz"
+tick cluster until raft-0.stateMachine.data "baz"
+tick cluster until raft-1.stateMachine.data "baz"
+tick cluster until raft-2.stateMachine.data "baz"

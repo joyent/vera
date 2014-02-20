@@ -1,0 +1,8 @@
+cluster 3 electLeader
+request leader "foo"
+request leader "bar"
+request leader "baz"
+#Because these are coming in at "the same time", the last should win.
+tick cluster until raft-0.stateMachine.data "baz"
+tick cluster until raft-1.stateMachine.data "baz"
+tick cluster until raft-2.stateMachine.data "baz"
