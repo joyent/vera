@@ -1,0 +1,30 @@
+# Make a cluster of 5
+cluster 5
+set raft-0.leaderTimeout 0
+tick cluster until equal raft-1.leaderId "raft-0"
+tick cluster until equal raft-2.leaderId "raft-0"
+tick cluster until equal raft-3.leaderId "raft-0"
+tick cluster until equal raft-4.leaderId "raft-0"
+# Make a client request
+request leader "foo"
+tick cluster until ok lastResponse
+assert deepEqual lastResponse { "leaderId": "raft-0", "entryTerm": 1, "entryIndex": 1, "success": true }
+tick cluster until equal raft-0.stateMachine.data "foo"
+tick cluster until equal raft-1.stateMachine.data "foo"
+tick cluster until equal raft-2.stateMachine.data "foo"
+tick cluster until equal raft-3.stateMachine.data "foo"
+tick cluster until equal raft-4.stateMachine.data "foo"
+# Partition the leader and two friends.
+partition raft-0
+partition raft-1
+partition raft-2
+# Tick a lot, verify that everyone else is a candidate now.
+tick cluster 100
+assert equal raft-0.state "leader"
+assert equal raft-1.state "candidate"
+assert equal raft-2.state "candidate"
+# Since these two can still communicate, there's a chance that one is a follower
+# and one is a candidate since one can transition to candidate and get a vote
+# out of the other (causing the other to step down to follower state).
+assert notEqual raft-3.state "leader"
+assert notEqual raft-4.state "leader"

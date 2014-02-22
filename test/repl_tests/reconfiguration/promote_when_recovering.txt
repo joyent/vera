@@ -1,0 +1,13 @@
+cluster 3 electLeader
+raft
+assert equal raft-3.cluster.clogIndex -1
+# Now raft-3 can't recieve the snapshot the cluster is about to send it.
+partition raft-3
+request leader { "to": "raft", "execute": "addPeer", "id": "raft-3", "autoPromote": false }
+tick cluster until ok lastResponse
+assert equal lastResponse.success true
+request leader { "to": "raft", "execute": "promotePeer", "id": "raft-3" }
+tick cluster until ok lastResponse
+assert equal lastResponse.success false
+assert equal lastError.name "InvalidRaftRequestError"
+

@@ -2,7 +2,6 @@
 Cluster reconfigurations.
    - Testing, testing, testing.
    - How does the http message bus know about new peers?
-   - don't promote unless the peer is "up to date"
 New leader pick up reconfiguration if leader dies during reconfig.
 Read-only peers hanging off a non-leader (?)
 Memory snapshot write to a stream rather than a big json object.
@@ -10,7 +9,6 @@ Add Flease to cliffsnotes.
 "run random" and see what it does.
 command log truncation.
 request id logging through pipelines (should only be done in the server, no?)
-revamp error handling in raft class
 Log (cumulative?) checksums
 Separate out Raft deviations document.
 All raft.js#TODOs
@@ -30,6 +28,7 @@ Doc on using the memory raft repl (and tests).
 ### Other tests
 - Transitioning to candidate in the middle of a snapshot transfer.
 - Client dying and coming back in waaaay later
+- Updating term/status fails to persist to disk
 
 ### Examples of plaintext tests:
 cluster of 3
