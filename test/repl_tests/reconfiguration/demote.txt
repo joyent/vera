@@ -1,0 +1,17 @@
+# Make raft-0 the leader
+cluster 3
+set raft-0.leaderTimeout 1
+tick cluster until equal raft-1.leaderId "raft-0"
+tick cluster until equal raft-2.leaderId "raft-0"
+# Demote raft-2
+assert equal raft-0.cluster.clusterConfig.current.raft-2.voting true
+request leader { "to": "raft", "execute": "demotePeer", "id": "raft-2" }
+tick cluster until ok lastResponse
+assert equal lastResponse.success true
+assert deepEqual raft-1.cluster.votingIds [ "raft-0", "raft-1" ]
+assert equal raft-0.cluster.clusterConfig.current.raft-2.voting false
+# Make a client request, see that raft-2 does get the message eventually.
+request leader "foo"
+tick cluster until ok lastResponse
+assert equal lastResponse.success true
+tick cluster until equal raft-2.stateMachine.data "foo"

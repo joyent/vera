@@ -1,0 +1,10 @@
+# Make raft-0 the leader
+cluster 3 electLeader
+# Block messages between all, see that an error is thrown on client request.
+partition raft-0
+partition raft-1
+partition raft-2
+request leader "bar"
+tick cluster until ok lastResponse
+assert equal lastResponse.success false
+assert equal lastError.name "RequestFailedError"

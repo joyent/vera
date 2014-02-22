@@ -131,7 +131,6 @@ test('single raft, not bootstrapped on init', function (t) {
 
 // Error on single raft instance non-voting as the cluster config (both on init
 //   and on reconfiguration)
-// Successful, no problems
 // Old dies after starting to use old/new, before committing
 // Old dies right after new config is propagated to majority
 // Old leader isn't in new configuration

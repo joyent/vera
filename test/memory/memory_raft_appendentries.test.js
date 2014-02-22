@@ -92,7 +92,6 @@ before(function (cb) {
         self.e = e;
         //Set the leaderTimout low...
         raft.leaderTimeout = LOW_LEADER_TIMEOUT;
-        raft.messageBus.blackholeUnknown = true;
         return (cb(err));
     });
 });

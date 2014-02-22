@@ -92,7 +92,6 @@ before(function (cb) {
     }, function (err) {
         //Set the leaderTimout low...
         self.raft.leaderTimeout = LOW_LEADER_TIMEOUT;
-        self.raft.messageBus.blackholeUnknown = true;
         return (cb(err));
     });
 });

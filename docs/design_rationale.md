@@ -897,3 +897,8 @@ Res: {
 
 The index is set so that the leader can set the peer match and peer next
 indexes.
+
+### Clients during a partition that are connected to a leader?
+
+Say we have clients that are connected to a leader.  All of these clients, plus
+the leader are partitioned.
