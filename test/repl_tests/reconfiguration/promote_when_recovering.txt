@@ -10,4 +10,3 @@ request leader { "to": "raft", "execute": "promotePeer", "id": "raft-3" }
 tick cluster until ok lastResponse
 assert equal lastResponse.success false
 assert equal lastError.name "InvalidRaftRequestError"
-

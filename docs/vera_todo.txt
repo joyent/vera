@@ -2,6 +2,7 @@
 Cluster reconfigurations.
    - Testing, testing, testing.
    - How does the http message bus know about new peers?
+VError everything
 New leader pick up reconfiguration if leader dies during reconfig.
 Read-only peers hanging off a non-leader (?)
 Memory snapshot write to a stream rather than a big json object.
