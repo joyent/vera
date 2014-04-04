@@ -47,6 +47,7 @@ javascript object.
 ### Response Codes
 
 | Code | Description |
+| --- | --- |
 | InternalError | There was an internal error.  Try Again |
 | InvalidParameter | You did something wrong.  Fix your request. |
 
