@@ -48,14 +48,14 @@ javascript object.
 | `version` | req | Only for HTTP requsts and on websocket upgrades.  Requests a particular API version.  If no version is specified, the latest is used. |
 | `code` | res | Machine-switchable response code. |
 | `message` | res | Human readable message.  Only present for non-successful requests |
-| `commitIndex` | Only interesting for follower reads, is the commit index for the follower that served the request. |
+| `commitIndex` | res | Only interesting for follower reads, is the commit index for the follower that served the request. |
 
 ### Response Codes and Common Responses
 
 Matches the HTTP spec as closely as possble.
 
 | Code | HTTP Code | Description |
-| --- | --- |
+| --- | --- | --- |
 | SwitchingProtocols | 101 | Web Socket upgrade. |
 | OK | 200 | Everything worked as expected |
 | TemporaryRedirect | 307 | The leader is elsewhere... |
@@ -89,7 +89,7 @@ web socket.
 Upon disconnect, a client has some period of time before Vera "times out" the
 client's ephemeral data.  Clients must re-establish a connection with the
 leader, if possible, before this timeout.  The timeout is configurable by the
-client since only the client knows the tolerance for stale connections.
+client since only the client knows the tolerance for stale data.
 
 If a client attempts to upgrade a connection to a web socket for the Vera
 follower, the Vera follower will respond with a `BadRequest` error.
@@ -104,8 +104,9 @@ If it is the leader, it will respond with the appropriate `SwitchingProtocols`
 TODO: Add HTTP request examples for the above.
 
 If the client implementation of the Web Sockets handshake doesn't allow the
-client to send headers, the first message that the client sends should be
-a message to establish version, etc.  All fields are optional.
+client to send headers, the first message that the client sends should be a
+message to establish version, etc.  All fields except `rid` and `action` are
+optional.
 
 Request (web socket):
 ```
