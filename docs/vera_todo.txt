@@ -19,6 +19,7 @@ Tools:
   - force leader to step down
 Leader regularly commits suicide as a chaos-monkey type thing.
 Doc on using the memory raft repl (and tests).
+Toy master failover app, use it in testing vera.
 
 ### Overall todo:
 * Solidly tested Raft Core
