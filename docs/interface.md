@@ -1,6 +1,6 @@
-## Interface, v0.0.1
+## Interface, v0
 
-The v0.0.1 interface for Vera is designed for the following use cases:
+The v0 interface for Vera is designed for the following use cases:
 
 1. Data that disappears when a client disconnects ("ephemeral data" in ZK-speak)
 2. Notifications to clients when data changes ("watches" in ZK-speak)
