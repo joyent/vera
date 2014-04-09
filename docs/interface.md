@@ -25,17 +25,18 @@ To that end:
 * Clients connect to and communicate with Vera via Web Sockets.
 * Intra-Vera communication is secured via HTTPS and HTTP Signature Auth.
 
-## Perhaps, Perhaps, Perhaps
+### Perhaps, Perhaps, Perhaps
 
-Things to consider that may end up being bad ideas:
+Things to consider that may end up being not implemented or just bad ideas:
 
+* Directories: Make the difference between a directory and a list explicit,
+  don't allow name collisions.
 * There are no explicit deletes.  Data is deleted when a client disconnects.
 * etags for test and set.
 * Persistent data.  Perhaps "owner" is "nobody"?
 * Assign data ownership to another client.
 * Should we establish a majority of connections?  Always one with the leader for
   writes, others for notifications when reconfigurations happen?
-
 
 ### Common Web Socket Request/Response items
 
@@ -52,7 +53,8 @@ javascript object.
 
 ### Response Codes and Common Responses
 
-Matches the HTTP spec as closely as possble.
+Matches the HTTP spec as closely as possble.  The HTTP codes are only for
+reference, the codes do not appear in web socket responses.
 
 | Code | HTTP Code | Description |
 | --- | --- | --- |
@@ -82,17 +84,9 @@ OK Response:
 
 ### Establishing a Web Socket
 
-All writes and notifications are funneled through/from the Vera leader.  That
-means there is a specific protocol for finding the leader and establishing a
-web socket.
-
-Upon disconnect, a client has some period of time before Vera "times out" the
-client's ephemeral data.  Clients must re-establish a connection with the
-leader, if possible, before this timeout.  The timeout is configurable by the
-client since only the client knows the tolerance for stale data.
-
-If a client attempts to upgrade a connection to a web socket for the Vera
-follower, the Vera follower will respond with a `BadRequest` error.
+All writes/notifications are funneled to/originate from the Vera leader.  The
+implication is that clients must be able to find and establish a connection with
+the current Vera leader.  This section describes how that is done.
 
 Clients connect by requesting the `/connect` resource, including cookies and
 the version header (if possible).  If the leader is unknown to that server,
@@ -101,7 +95,46 @@ leader is elsewhere, the follower will respond with a `TemporaryRedirect` (307).
 If it is the leader, it will respond with the appropriate `SwitchingProtocols`
 (101).
 
-TODO: Add HTTP request examples for the above.
+Client connect request:
+```
+GET /connect HTTP/1.1
+Host: vera.example.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Origin: http://example.com
+Sec-Websocket-Protocol: vera-0
+Sec-WebSocket-Version: 13
+Cookie: CID=<client identifier>
+
+```
+
+_Note: The CID cookie is only sent for clients that have a previous session._
+
+Server response when leader is unknown:
+```
+HTTP/1.1 503 Service Unavailable
+Retry-After: 5
+
+```
+
+Server response to redirect:
+```
+HTTP/1.1 307 Temporary Redirect
+Location: 0af36c0b.vera.example.com
+
+```
+
+Server response to upgrade:
+```
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-Websocket-Protocol: vera-0
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+Set-Cookie: CID=<id>; Domain=vera.example.com; Path=/; Expires=...
+
+```
 
 If the client implementation of the Web Sockets handshake doesn't allow the
 client to send headers, the first message that the client sends should be a
@@ -113,8 +146,9 @@ Request (web socket):
 {
     "rid": "xyz",
     "action": "connect",
-    "client": "<client identifier>",
-    "version": "0.0.1"
+    "cid": "<client identifier>",
+    "version": "0",
+    "timeout": "3600"
 }
 ```
 
@@ -123,6 +157,27 @@ OK Response.
 If the client hasn't established a version with either a header or in the first
 message to the server, the server will throw a `BadRequest` response until the
 client does so.
+
+Upon disconnect, a client has some period of time before Vera "times out" the
+client's ephemeral data.  Clients must re-establish a connection with the
+leader, before this timeout.  The timeout is configurable by the client since
+only the client knows the tolerance for stale data.
+
+Gotchas:
+
+Using cookies and connecting to a different host isn't going to work in a web
+browser without a very specific setup, namely, all servers in the cluster are
+in an A record for a name, then each individual vera server has a CNAME (or an
+A record) at a subdomain.  For example:
+```
+$ dig +short vera.example.com
+10.99.99.19
+10.99.99.12
+10.99.99.21
+$ dig +short 0af36c0b.vera.example.com
+10.99.99.19
+...
+```
 
 ### Heartbeat
 
@@ -144,10 +199,10 @@ OK Response.
 
 ### Read
 
-Reads can either be done with a straight HTTP request or can be made over
-a websocket channel.  If the request is made via HTTP, the Vera server will
-serve the request, no matter how stale the data may be.  Clients are only
-guaranteed consistent reads when requesting over the web soket to the leader.
+Reads can either be done with a straight HTTP request or can be made over a
+websocket channel.  If the request is made via HTTP, the Vera server will serve
+the request, no matter how stale the data may be.  Clients are only guaranteed
+consistent reads when requesting over a web socket (only to a leader).
 
 Request (web socket):
 ```
@@ -190,7 +245,6 @@ holding the watch.
 
 TODO
 * Should we use the ip address or something else that identifies the client?
-* Need to figure out pagination due to web socket request size.
 
 ### Push
 
@@ -210,9 +264,12 @@ Request:
 
 Response: Same as response to a GET request.
 
+TODO:
+* Add an etag example?  Only if we do test/set.
+
 ### Register watch
 
-This registers a watch on a list, tied to the client session (cookie).
+This registers a watch on a list, tied to the client session.
 
 ```
 {
@@ -239,10 +296,12 @@ OK Response.
 ### Receive Notifications
 
 Notifications are sent from the server to the client.  Clients must process
-notifications in the order they are recieved.  Clients must ack each
-notification they successfully processed.  Vera chooses at least once delivery
-(rather than at most once delivery) so clients can receive duplicate
-notifications.
+notifications in the order they are recieved.  Clients ack notification they
+successfully processed in a heartbeat request.  Vera chooses at least once
+delivery (rather than at most once delivery) so clients can receive duplicate
+notifications.  Since all notifications are tied to a Raft index, clients can
+disregard notifications that have a lower index than what they are heartbeating
+with.
 
 Request (from server):
 ```
@@ -262,10 +321,13 @@ Request (from server):
 
 The index is the raft index corresponding to the change.
 
+Responses to notifications are communicated via heartbeat requests.  Immediate
+response is optional since clients should send heartbeats at regular intervals.
+If the "next interval" is "a long time in the future", clients should ack with a
+heartbeat sooner.  Clients should error on the side of more heartbeats.
+
 TODO:
 * Still need to work out what data we include in the notification.
-
-Response is in heartbeat.
 
 ## Node Client
 
