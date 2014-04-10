@@ -22,7 +22,9 @@ Interactions from a browser to Vera should not only be possible, but *simple*.
 To that end:
 
 * Client sessions are managed via cookies.
-* Clients connect to and communicate with Vera via Web Sockets.
+* Clients connect to and communicate with Vera via Web Sockets for consistent
+  reads, watching and writes.  Eventually consistent (perhaps stale) reads can
+  be done either over web sockets or HTTP requests.
 * Intra-Vera communication is secured via HTTPS and HTTP Signature Auth.
 
 ### Perhaps, Perhaps, Perhaps
@@ -37,6 +39,53 @@ Things to consider that may end up being not implemented or just bad ideas:
 * Assign data ownership to another client.
 * Should we establish a majority of connections?  Always one with the leader for
   writes, others for notifications when reconfigurations happen?
+* Explicit/clean disconnect.
+* Updates to elements within lists.
+
+### Data Model
+
+This section explains Vera's data model.  It will only cover the client
+interface, and not the model for raft data.  All items with a path prefix of
+`/data` are pointers to lists of items.  There is no explicit directory
+management, but the keys to lists can be treated as hierarchical with a `/`
+separator.
+
+List data is strictly ordered on a first-come, first served basis.  If you're
+familiar with the Raft consensus algorithm, the items in lists are always
+ordered by the raft commit index under which they were created.  Clients create
+data in lists.  That data remains in the list until the client "goes away",
+which is determined by a timeout period since a client's last heartbeat.
+
+Other clients can watch lists, getting notifications when items are added or
+removed.  Clients that have data in the list have an implicit watch on that
+list.
+
+Here is an example data model.  This example has one list that has three
+elements, one client watching the list and two other clients holding data in the
+list.  Note that `Client-2` and `Client-3` have implicit watches on the list.
+
+```
+|<------------  Data In Vera ---------------->|<------- Clients -------->|
+
++--------------------+                                +----------+
+| /data/path/to/list |<---------- (watch) -----+------| Client-1 |
++--------------------+                         |      +----------+
+        |                                      |
+        |                                      |      (implicit)
+        |                                      +----------------------+
+        |                                                             |
+        |                    +--------+               +----------+    |
+        +------ (list) --+-->| data-1 |<------+-------| Client-2 |----+
+                         |   +--------+       |       +----------+    |
+                         |                    |                       |
+                         |   +--------+       |       +----------+    |
+                         +-->| data-2 |<------(-------| Client-3 |----+
+                         |   +--------+       |       +----------+
+                         |                    |
+                         |   +--------+       |
+                         +-->| data-2 |<------+
+                             +--------+
+```
 
 ### Common Web Socket Request/Response items
 
@@ -76,11 +125,13 @@ OK Response:
 
 ### Vera Paths
 
+Paths in Vera are used like traditional HTTP paths, to segment data.
+
 | Path Prefix | Description |
 | --- | --- |
 | `/connect` | Attempts to connect a web socket. |
 | `/data` | Data lives here. |
-| `/vera` | Internal cluster management endpoint. |
+| `/raft` | Internal cluster management endpoint. |
 
 ### Establishing a Web Socket
 
@@ -179,6 +230,10 @@ $ dig +short 0af36c0b.vera.example.com
 ...
 ```
 
+TODO:
+
+* Verify that browsers will follow the redirect for web socket establishment.
+
 ### Heartbeat
 
 Clients heartbeat the server to avoid ephemeral data timeouts.  They heartbeat
@@ -240,8 +295,8 @@ Response:
 }
 ```
 
-The version is the RAFT index.  The owner is the ip address of the client
-holding the watch.
+The version is the RAFT index.  The owner is the ip address of the client that
+set the data.
 
 TODO
 * Should we use the ip address or something else that identifies the client?
@@ -267,9 +322,10 @@ Response: Same as response to a GET request.
 TODO:
 * Add an etag example?  Only if we do test/set.
 
-### Register watch
+### Watch
 
-This registers a watch on a list, tied to the client session.
+This watches a list, tied to the client session.  Lists that don't exist can be
+watched.
 
 ```
 {
@@ -281,7 +337,7 @@ This registers a watch on a list, tied to the client session.
 
 OK Response.
 
-### Unregister watch
+### Unwatch
 
 ```
 {
@@ -295,13 +351,13 @@ OK Response.
 
 ### Receive Notifications
 
-Notifications are sent from the server to the client.  Clients must process
-notifications in the order they are recieved.  Clients ack notification they
-successfully processed in a heartbeat request.  Vera chooses at least once
-delivery (rather than at most once delivery) so clients can receive duplicate
-notifications.  Since all notifications are tied to a Raft index, clients can
-disregard notifications that have a lower index than what they are heartbeating
-with.
+Notifications are sent from the server to the client when data changes for a
+list that the client is watching.  Clients must process notifications in the
+order they are recieved.  Clients ack notification they successfully processed
+in a heartbeat request.  Vera chooses at least once delivery (rather than at
+most once delivery) so clients can receive duplicate notifications.  Since all
+notifications are tied to a Raft index, clients can disregard notifications that
+have a lower index than what they are heartbeating with.
 
 Request (from server):
 ```
