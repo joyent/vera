@@ -41,6 +41,12 @@ Things to consider that may end up being not implemented or just bad ideas:
   writes, others for notifications when reconfigurations happen?
 * Explicit/clean disconnect.
 * Updates to elements within lists.
+* API to allow clients to see what they are "holding".
+* HTTP-equivalents to the web socket APIs?  Would require polling by clients
+  for heartbeats.  Notifications would have some delay unless we implement
+  long polling.  MC said "everything but notifications?"
+* A "consistent-read" flag on the HTTP read that will `302` a client to the
+  Vera leader.
 
 ### Data Model
 
@@ -58,7 +64,8 @@ which is determined by a timeout period since a client's last heartbeat.
 
 Other clients can watch lists, getting notifications when items are added or
 removed.  Clients that have data in the list have an implicit watch on that
-list.
+list.  If clients are disconnected for some time, notifications will be
+delivered when the client reconnects.
 
 Here is an example data model.  This example has one list that has three
 elements, one client watching the list and two other clients holding data in the
@@ -90,35 +97,35 @@ list.  Note that `Client-2` and `Client-3` have implicit watches on the list.
 ### Common Web Socket Request/Response items
 
 Since we're communicating over web sockets, each request/response is one
-javascript object.
+JavaScript object.
 
 | Field | Where | Description |
 | --- | --- | --- |
-| `rid` | req/res | To tie requests to responses, a `rid` field is used.  The side making the request is responsible for ensuring unique `rid`s. |
-| `version` | req | Only for HTTP requsts and on websocket upgrades.  Requests a particular API version.  If no version is specified, the latest is used. |
+| `req_id` | req/res | To tie requests to responses, a `req_id` field is used.  The side making the request is responsible for ensuring unique `req_id`s. |
+| `version` | req | Required on HTTP requests and on web socket upgrades.  Requests a particular API version.  Can also be specified in the `Sec-Websocket-Protocol` or `accept-version` header. |
 | `code` | res | Machine-switchable response code. |
 | `message` | res | Human readable message.  Only present for non-successful requests |
 | `commitIndex` | res | Only interesting for follower reads, is the commit index for the follower that served the request. |
 
 ### Response Codes and Common Responses
 
-Matches the HTTP spec as closely as possble.  The HTTP codes are only for
+Matches the HTTP spec as closely as possible.  The HTTP codes are only for
 reference, the codes do not appear in web socket responses.
 
 | Code | HTTP Code | Description |
 | --- | --- | --- |
 | SwitchingProtocols | 101 | Web Socket upgrade. |
 | OK | 200 | Everything worked as expected |
-| TemporaryRedirect | 307 | The leader is elsewhere... |
-| BadRequest | 400 | You did something wrong.  Fix your request. |
-| NotFound | 404 | Data wasn't found at the requested path. |
+| MovedTemporarily | 302 | The leader is elsewhere... |
+| BadRequestError | 400 | You did something wrong.  Fix your request. |
+| NotFoundError | 404 | Data wasn't found at the requested path. |
 | InternalServerError | 500 | There was an internal error.  Try again later. |
-| ServiceUnavailable | 503 | The service is unavailable.  Most likely there's a leader election in progress.  Try again later. |
+| ServiceUnavailableError | 503 | The service is unavailable.  Most likely there's a leader election in progress.  Try again later. |
 
 OK Response:
 ```
 {
-   "rid": "xyz",
+   "req_id": "xyz",
    "code": "OK"
 }
 ```
@@ -139,12 +146,11 @@ All writes/notifications are funneled to/originate from the Vera leader.  The
 implication is that clients must be able to find and establish a connection with
 the current Vera leader.  This section describes how that is done.
 
-Clients connect by requesting the `/connect` resource, including cookies and
-the version header (if possible).  If the leader is unknown to that server,
-the follower will return a `ServiceUnavailable` (503) to the client.  If the
-leader is elsewhere, the follower will respond with a `TemporaryRedirect` (307).
-If it is the leader, it will respond with the appropriate `SwitchingProtocols`
-(101).
+Clients connect by requesting the `/connect` resource, including cookies and the
+version header.  If the leader is unknown to that server, the follower will
+return a `ServiceUnavailable` (503) to the client.  If the leader is elsewhere,
+the follower will respond with a `MovedTemporarily` (302).  If it is the
+leader, it will respond with the appropriate `SwitchingProtocols` (101).
 
 Client connect request:
 ```
@@ -171,7 +177,7 @@ Retry-After: 5
 
 Server response to redirect:
 ```
-HTTP/1.1 307 Temporary Redirect
+HTTP/1.1 302 Moved Temporarily
 Location: 0af36c0b.vera.example.com
 
 ```
@@ -189,13 +195,13 @@ Set-Cookie: CID=<id>; Domain=vera.example.com; Path=/; Expires=...
 
 If the client implementation of the Web Sockets handshake doesn't allow the
 client to send headers, the first message that the client sends should be a
-message to establish version, etc.  All fields except `rid` and `action` are
+message to establish version, etc.  All fields except `req_id` and `action` are
 optional.
 
 Request (web socket):
 ```
 {
-    "rid": "xyz",
+    "req_id": "xyz",
     "action": "connect",
     "cid": "<client identifier>",
     "version": "0",
@@ -218,7 +224,7 @@ Gotchas:
 
 Using cookies and connecting to a different host isn't going to work in a web
 browser without a very specific setup, namely, all servers in the cluster are
-in an A record for a name, then each individual vera server has a CNAME (or an
+in an A record for a name, then each individual Vera server has a CNAME (or an
 A record) at a subdomain.  For example:
 ```
 $ dig +short vera.example.com
@@ -233,6 +239,8 @@ $ dig +short 0af36c0b.vera.example.com
 TODO:
 
 * Verify that browsers will follow the redirect for web socket establishment.
+* Is it OK that the `sec-websocket-protocol` and `accept-version` headers accept
+  different formats?  Explain.
 
 ### Heartbeat
 
@@ -245,7 +253,7 @@ received notifications, the index is optional.
 Request:
 ```
 {
-    "action": "hearbeat",
+    "action": "heartbeat",
     "index": 1724
 }
 ```
@@ -262,7 +270,7 @@ consistent reads when requesting over a web socket (only to a leader).
 Request (web socket):
 ```
 {
-   "rid": "xyz",
+   "req_id": "xyz",
    "action": "get",
    "path": "/data/foo/bar"
 }
@@ -272,22 +280,21 @@ Request (HTTP):
 ```
 GET /data/foo/bar HTTP/1.1
 host: vera.us-east.joyent.us
-...
-
+accept-version: ~0
 
 ```
 
 Response:
 ```
 {
-    "rid": "xyz",
+    "req_id": "xyz",
     "items": [
         {
-            "version": 1233,
+            "index": 1233,
             "owner": 10.99.99.14,
             "data": { ... }
         }, {
-            "version": 1247,
+            "index": 1247,
             "owner": 10.99.99.17,
             "data": { ... }
         }
@@ -295,22 +302,23 @@ Response:
 }
 ```
 
-The version is the RAFT index.  The owner is the ip address of the client that
-set the data.
+The index is the RAFT index corresponding to the item create request.  The owner
+is the IP address of the client that set the data.
 
 TODO
-* Should we use the ip address or something else that identifies the client?
+* Should we use the IP address or something else that identifies the client?
 
 ### Push
 
 This pushes an object onto a list.  Pushes must be done over a web socket.
 Any data created by a client will be removed when the client is no longer
-connected to Vera.
+connected to Vera.  Data is immutable once it has been pushed onto the list.
+The data field can be any JSON structure.
 
 Request:
 ```
 {
-    "rid": "xyz",
+    "req_id": "xyz",
     "action": "push",
     "path": "/data/foo/bar",
     "data": { ... }
@@ -321,15 +329,16 @@ Response: Same as response to a GET request.
 
 TODO:
 * Add an etag example?  Only if we do test/set.
+* Size limits on `data`?  Depends on notifications...
 
 ### Watch
 
 This watches a list, tied to the client session.  Lists that don't exist can be
-watched.
+watched.  Watches persist for as long as the client session is kept by Vera.
 
 ```
 {
-    "rid": "xyz",
+    "req_id": "xyz",
     "action": "watch",
     "path": "/data/foo/bar"
 }
@@ -341,7 +350,7 @@ OK Response.
 
 ```
 {
-    "rid": "xyz",
+    "req_id": "xyz",
     "action": "unwatch",
     "path": "/data/foo/bar"
 }
@@ -352,12 +361,27 @@ OK Response.
 ### Receive Notifications
 
 Notifications are sent from the server to the client when data changes for a
-list that the client is watching.  Clients must process notifications in the
-order they are recieved.  Clients ack notification they successfully processed
-in a heartbeat request.  Vera chooses at least once delivery (rather than at
-most once delivery) so clients can receive duplicate notifications.  Since all
-notifications are tied to a Raft index, clients can disregard notifications that
-have a lower index than what they are heartbeating with.
+list that the client is watching.  List changes occur when data is added or
+removed.  Clients must process notifications in the order they are received.
+Clients ack notification they successfully processed in a heartbeat request.
+Vera chooses at least once delivery (rather than at most once delivery) so
+clients must be able to handle duplicate notifications.  Since all notifications
+are tied to a Raft index, clients can disregard notifications that have a lower
+index than what they are heartbeating with.
+
+_NOTE: I'm not convinced this is the best approach...  I have a relatively
+simple implementation for the second point, but the first point seems like
+it may become overly expensive._
+
+All outstanding notifications are delivered each time to the client.  This
+has obvious implications for high-throughput systems since many duplicate
+notifications may be sent while a client is processing the lower-order items.
+
+Also, all notifications are held for a time when a client goes offline.  After
+the client reconnects, Vera will deliver any outstanding messages that the
+client missed while Vera was unable to communicate notifications.
+
+_End NOTE_
 
 Request (from server):
 ```
@@ -365,11 +389,15 @@ Request (from server):
     "action": "notify",
     "notifications": [
         {
+            "path": "/data/foo/bar",
+            "type": "push",
             "index": 1233,
-            "data": { ... }
+            "item": { <same as item in GET request> }
         }, {
+            "path": "/data/foo/bar",
+            "type": "delete",
             "index": 1247,
-            "data": { ... }
+            "item": { <same as item in GET request> }
         }
     ]
 }
@@ -381,9 +409,6 @@ Responses to notifications are communicated via heartbeat requests.  Immediate
 response is optional since clients should send heartbeats at regular intervals.
 If the "next interval" is "a long time in the future", clients should ack with a
 heartbeat sooner.  Clients should error on the side of more heartbeats.
-
-TODO:
-* Still need to work out what data we include in the notification.
 
 ## Node Client
 
@@ -402,7 +427,7 @@ be over a bad channel.  We'd need some way for the client to reconnect to a
 different host.
 
 The easiest thing to do here is allow all reads to be allowed from any client.
-Then all epemeral writes need to be done via the leader.  When the client fails
+Then all ephemeral writes need to be done via the leader.  When the client fails
 the leader detects and rearranges data.  When the leader fails, the clients have
 some grace period to connect to the new leader, where all their state is already
 in the state machine of the followers.
