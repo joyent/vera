@@ -1,12 +1,12 @@
 ## Use Cases
 
-This is menat to outline how the [interface](interface.md) maps to use cases.
+This is meant to outline how the [interface](interface.md) maps to use cases.
 If you aren't yet familiar with the Vera interface, you should read that before
 reading this.
 
 ## Use Case: Leader Election / Service Topology
 
-Vera is used by services to elect a leader from some number of independant
+Vera is used by services to elect a leader from some number of independent
 peers.  In this example, we'll use three distinct peers, `10.77.77.6`,
 `10.77.77.8` and `10.77.77.12`, all vying to be a leader.  Also, one will be
 designated a synchronous peer.
@@ -82,7 +82,7 @@ back in the topology at the end of the list.
 
 It's also noteworthy that there may be some number of hosts that need to know
 when the leader has changed.  Using the above example, say that the three
-ppers are database hosts.  Each of the clients to that database cluster should
+peers are database hosts.  Each of the clients to that database cluster should
 know when the leader (master database) changes, so that writes can be directed
 to the appropriate place.  Each of these clients would register a watch on
 the election path, as above:
@@ -132,7 +132,7 @@ following onto two lists:
 ```
 
 When the client goes away, the previous data will be purged from Vera.  Since
-DNS can be cached, we can assume that eventually consistant reads are OK.  The
+DNS can be cached, we can assume that eventually consistent reads are OK.  The
 DNS servers could be any process that knows how to HTTP GET.  For example, if
 the DNS server got a request for `1.moray.coal.joyent.us`. it would reverse the
 path and do an HTTP get to Vera at `GET /data/dns/us/joyent/coal/moray/1
@@ -157,7 +157,19 @@ following path:
 }
 ```
 
-Then the load balancer will watch that path for changes.
+Then the load balancer will set a watch on that path:
+
+```
+{
+    "action": "watch",
+    "path": "/data/frontend"
+}
+```
+
+The first time the LB connects, it will get the current set of hosts and
+configure itself to load balance between them.  When a frontend host goes away
+or a new one comes online, the LB will get a notification that an element in the
+list was added/removed and reconfigure itself.
 
 ## Use Case: Manatee
 
