@@ -344,7 +344,7 @@ watched.  Watches persist for as long as the client session is kept by Vera.
 }
 ```
 
-OK Response.
+Response: Same as response to a GET request, with the current
 
 ### Unwatch
 
