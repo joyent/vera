@@ -2,7 +2,7 @@
 // Copyright (c) 2014, Joyent, Inc. All rights reserved.
 
 var bunyan = require('bunyan');
-var getopt = require('posix-getopt');
+var dashdash = require('dashdash');
 var memraft = require('../test/repl/memory_raft');
 var path = require('path');
 var readline = require('readline');
@@ -12,54 +12,50 @@ var readline = require('readline');
 ///--- Globals
 
 var LOG = bunyan.createLogger({
-    level: (process.env.LOG_LEVEL || 'fatal'),
-    name: 'memraft-repl',
-    stream: process.stdout
+    'level': (process.env.LOG_LEVEL || 'fatal'),
+    'name': 'memraft-repl',
+    'stream': process.stdout
 });
 
-
-
-///--- Opts parsing
-
-function parseOptions() {
-    var option;
-    var opts = {};
-    var parser = new getopt.BasicParser('f:r',
-                                        process.argv);
-    while ((option = parser.getopt()) !== undefined && !option.error) {
-        switch (option.option) {
-        case 'f':
-            opts.filename = option.optarg;
-            break;
-        case 'r':
-            opts.repl = true;
-            break;
-        default:
-            usage('Unknown option: ' + option.option);
-            break;
-        }
+var OPTIONS = [
+    {
+        'names': ['help', 'h'],
+        'type': 'bool',
+        'help': 'Print this help and exit.'
+    },
+    {
+        'names': ['filename', 'f'],
+        'type': 'string',
+        'help': 'File with repl commands, one per line.',
+        'helpArg': 'FILE'
+    },
+    {
+        'names': ['repl', 'r'],
+        'type': 'bool',
+        'help': 'Interactive repl on error or end of file commands.'
     }
-
-    return (opts);
-}
-
-
-function usage(msg) {
-    if (msg) {
-        console.error(msg);
-    }
-    var str  = 'usage: ' + path.basename(process.argv[1]);
-    str += ' -f <filename>';
-    str += ' -r';
-    console.error(str);
-    process.exit(1);
-}
+];
 
 
 
 ///--- Main
 
-var _opts = parseOptions();
+var dd = dashdash.createParser({ options: OPTIONS });
+try {
+    var _opts = dd.parse(process.argv);
+} catch (e) {
+    console.error('repl: error: %s', e.message);
+    process.exit(1);
+}
+
+if (_opts.help) {
+    var help = dd.help({ includeEnv: true }).trimRight();
+    console.log('usage: ' + path.basename(process.argv[1]) + ' [OPTIONS]\n'
+                + 'options:\n'
+                + help);
+    process.exit(2);
+}
+
 _opts.log = LOG;
 var props = { 'log': LOG };
 

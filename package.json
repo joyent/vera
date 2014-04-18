@@ -1,23 +1,26 @@
 {
     "name": "vera",
-    "description": "A distributed consensus service.",
+    "description": "A consensus service with a Raft core.",
     "repository": {
         "type": "git",
         "url": "git://github.com/joyent/vera.git"
     },
     "version": "0.0.1",
     "author": "Joyent (joyent.com)",
-    "main": "./lib/index.js",
+    "main": "./main.js",
     "dependencies": {
         "assert-plus": "0.1.4",
 	"bignum": "0.6.2",
         "bunyan": "0.22.0",
+        "dashdash": "1.5.0",
         "deepcopy": "0.3.3",
+        "dtrace-provider": "0.2.8",
         "extsprintf": "1.0.2",
         "level": "0.18.0",
         "lstream": "0.0.4",
-        "posix-getopt": "1.0.0",
-        "vasync": "1.4.3"
+        "restify": "2.7.0",
+        "vasync": "1.4.3",
+        "watershed": "0.3.0"
     },
     "devDependencies": {
         "buffertools": "1.1.1",

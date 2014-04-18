@@ -22,6 +22,8 @@ Leader regularly commits suicide as a chaos-monkey type thing.
 Doc on using the memory raft repl (and tests).
 Toy master failover app, use it in testing vera.
 Look at node-ctype: has uint64 stuff.
+Integrate kang
+RequestCaptureStream?
 
 ### Overall todo:
 * Solidly tested Raft Core
