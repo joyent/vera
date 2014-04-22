@@ -1,9 +1,22 @@
 ### TODO
-Add how use cases are solved by interface doc.
+Server
+   - Message Bus (finish)
+   - LevelDb State Machine (finish)
+   - Init (single/first raft)
+   - Raft ticker
+   - How do you resolve the cluster config in the etc/config.json with the
+     cluster config in the leveldb?
+   - Cluster config when starting the raft instance.  Need to pull it out of
+     the db at some point?
+   - Tool to dump leveldb.
+   - Get raft config at endpoint.
+   - Figure out what to do with error handling on client requests.
+   - What to do with the message bus on cluster reconfiguration?
 Cluster reconfigurations.
    - Testing, testing, testing.
    - How does the http message bus know about new peers?
 VError everything
+Test "concurrent" cluster reconfiguration requests.
 New leader pick up reconfiguration if leader dies during reconfig.
 Read-only peers hanging off a non-leader (?)
 Memory snapshot write to a stream rather than a big json object.
@@ -23,7 +36,7 @@ Doc on using the memory raft repl (and tests).
 Toy master failover app, use it in testing vera.
 Look at node-ctype: has uint64 stuff.
 Integrate kang
-RequestCaptureStream?
+Restify/bunyan RequestCaptureStream like in Manta frontend?
 
 ### Overall todo:
 * Solidly tested Raft Core

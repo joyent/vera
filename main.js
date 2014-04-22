@@ -16,7 +16,8 @@ var lib = require('./lib');
 ///--- Globals
 
 var NAME = 'vera';
-var LEVEL = process.env.LOG_LEVEL || 'info';
+//TODO: Change back to info?
+var LEVEL = process.env.LOG_LEVEL || 'debug';
 var LOG = bunyan.createLogger({
     'name': NAME,
     'streams': [ {
@@ -59,7 +60,6 @@ var VERSION = false;
 function configure() {
     var cfg;
     var opts;
-    var parser = new dashdash.Parser({options: OPTIONS});
 
     var dd = dashdash.createParser({ options: OPTIONS });
     try {
@@ -162,7 +162,7 @@ function version() {
     });
 
     server.on('ready', function () {
-        LOG.info('%s listening on port %d', NAME, server.port);
+        LOG.info('startup complete');
     });
 
     process.on('SIGHUP', process.exit.bind(process, 0));

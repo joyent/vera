@@ -1,5 +1,6 @@
 {
     "raft": {
-        "???": "???"
+        "id": "localhost",
+        "location": "/var/tmp/vera"
     }
 }
