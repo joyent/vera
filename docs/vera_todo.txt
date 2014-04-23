@@ -1,20 +1,20 @@
 ### TODO
 Server
+   - Tool to dump leveldb
+   - Raft ticker
    - Message Bus (finish)
    - LevelDb State Machine (finish)
-   - Init (single/first raft)
-   - Raft ticker
-   - How do you resolve the cluster config in the etc/config.json with the
-     cluster config in the leveldb?
-   - Cluster config when starting the raft instance.  Need to pull it out of
-     the db at some point?
-   - Tool to dump leveldb.
-   - Get raft config at endpoint.
+   - Add peer (with tool)
    - Figure out what to do with error handling on client requests.
    - What to do with the message bus on cluster reconfiguration?
+   - Nice Error messages on invalid config (raft_init)
+   - Tests
+       - Test when isFirstPeer === true, existing cluster config *isn't*
+         overwritten.
 Cluster reconfigurations.
    - Testing, testing, testing.
    - How does the http message bus know about new peers?
+Transition to follower when leader hasn't received appendEntries responses
 VError everything
 Test "concurrent" cluster reconfiguration requests.
 New leader pick up reconfiguration if leader dies during reconfig.

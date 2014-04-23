@@ -1,0 +1,12 @@
+{
+    "raft": {
+        "id": "localhost",
+        "location": "/var/tmp/vera",
+        "isFirstPeer": true,
+        "clusterConfig": {
+            "localhost": {
+                "ip": "127.0.0.1"
+            }
+        }
+    }
+}

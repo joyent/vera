@@ -90,7 +90,7 @@ function configure() {
     }
 
     cfg = JSON.parse(readFile(opts.file));
-    cfg.port = opts.port || cfg.port || 1919;
+    cfg.port = opts.port || cfg.port || lib.defaults.PORT;
 
     cfg.name = NAME;
     cfg.version = version();
