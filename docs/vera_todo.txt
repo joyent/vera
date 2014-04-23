@@ -1,6 +1,5 @@
 ### TODO
 Server
-   - Tool to dump leveldb
    - Raft ticker
    - Message Bus (finish)
    - LevelDb State Machine (finish)
@@ -11,6 +10,8 @@ Server
    - Tests
        - Test when isFirstPeer === true, existing cluster config *isn't*
          overwritten.
+   - Endpoint to look up an entry in the leveldb.
+   - Endpoint to get ranges from leveldb.
 Cluster reconfigurations.
    - Testing, testing, testing.
    - How does the http message bus know about new peers?
