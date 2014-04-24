@@ -38,6 +38,9 @@ Toy master failover app, use it in testing vera.
 Look at node-ctype: has uint64 stuff.
 Integrate kang
 Restify/bunyan RequestCaptureStream like in Manta frontend?
+db.db.getProperty('leveldb.stats');
+leveldown.destroy(location, callback);
+Snapshot reads to node level[down|up]?
 
 ### Overall todo:
 * Solidly tested Raft Core
