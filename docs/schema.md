@@ -81,4 +81,151 @@ state machine for Raft testing.  An internal property was used instead.
 
 ## Vera Data Layout
 
-Next TODO...
+Vera's interface needs to support the following entities:
+
+* List Items
+* Clients
+* Implicit Watches
+* Explicit Watches
+
+The lookups we need to support:
+
+| From | To | API / Function |
+| --- | --- | --- |
+| Client | Ephemeral data client holds | Expiration of data. |
+| Watch | Set of clients | Send out events. |
+
+### Schema
+
+| BytePrefix | Type | Key | Value |
+| --- | --- | --- |
+| `0x0003` | List Item | `/data/path/to/list` + `0x0000` + `raftIndex` | `{ data:, clientId: }` |
+| `0x0004` | Client | `/client/` + `clientId` | `{ remoteIp:, timeout: }` |
+| `0x0005` | Client Data | `/cdata/` + `clientId` + `0x0000` + `[List Item Key]` | `` |
+| `0x0006` | Watch | `/watch/path/to/list` + `0x0000` + `clientId` | ` ` |
+| `0x0007` | Client Lag | `/lag/` + `clientId` | `{ index: }` |
+
+_TODO: Spread out the above a litte more?_
+
+### Scratch
+
+* Where to keep the client notification position?  Do we even need one?
+
+Goals:
+1) Only write data for the client on needs notification.
+2) Keep a minimal amount of data for the client, update data as little as
+   possible.
+
+On server:
+1) Last client heartbeat
+
+In Raft:
+
+New leaders need to set their own client timeouts for reconnect.  Shouldn't this
+be the same
+
+Notifications
+Ephemeral Data
+
+### Ephemeral data walkthrough:
+
+Ephemeral data walkthrough (substituting `|` for `0x0000`):
+1. Client A connects:
+    * Raft write:
+        * `/client/A -> { 'remoteIp': '127.0.0.1', 'timeout': 30 }`
+    * In memory:
+        * `self.expirationQueue.push('A', 30);`
+        * `self.connections['A'] = websocket`
+1. Client A pushes "x" on list /foo/bar
+    * Raft write:
+        * `/data/foo/bar|0001 -> { 'data': 'x', 'clientId': 'A' }`
+        * `/cdata/A|/data/foo/bar|0001`
+        * `/watch/foo/bar|A`
+1. Client heartbeat
+    * In memory:
+        * `self.expirationQueue.reset('A')`
+1. Client fails to heartbeat
+    * In memory:
+        * `self.expirationQueue.emit('expired', { 'id': 'A' })`
+    * Raft lookup:
+        * `list '/cdata/A|'`
+    * Raft write (this would be done in a batch, not one per):
+        * `delete '/cdata/A|/data/foo/bar|0001'`
+1. Leader fails, new leader:
+    * List Clients
+        * `list /client`
+    * Set expirations (in memory):
+        * `new self.expirationQueue`
+        * `foreach client {self.expirationQueue.push(c.id, c.timeout); }`
+
+From the above, Raft writes only occur on:
+1. Client Connects
+2. Data writing
+3. Data expiration
+
+### Notification Walkthrough
+
+1. Leader, inits notifier:
+    * Raft read:
+        * `internalProperty('notificationIndex') -> null`
+    * In memory:
+        * `new Notifier(0000)`
+1. Client A connects (see above)
+1. Client B connects (see above)
+1. Client B watches /foo/bar:
+    * Raft write:
+        * `/watch/foo/bar|B`
+1. Client A pushes "x" on list /foo/bar
+    * Raft write:
+        * `/data/foo/bar|0001 -> { 'data': 'x', 'clientId': 'A' }`
+        * `/cdata/A|/data/foo/bar|0001`
+        * `/watch/foo/bar|A`
+    * On complete
+        * `stateMachine.emit('dataChange', { 'type': 'add', ...} )`
+1. Notifier recieves event
+    * _NOTE: This might be the place where reading from a leveldb snapshot is
+      the thing to do for consistent reads.  In this case, the snapshot would be
+      taken before the stateMachine emits and sent along with the event._
+    * Find clients that are interested in this list:
+        * `list /watch/foo/bar|'
+    * For each client, send notifications:
+        * `self.connections['A'].sendNotification(...)`
+    * Raft write (all in batch):
+        * Give each client a "reasonable time" to respond.  For each client that
+          doesn't: `/lag/A -> { 0000 }`
+        * `internalProperty('notificationIndex') -> 0000`
+
+How do clients catch up?
+When is it appropriate to write client data?
+It she same problem for appends as it is for client notifications, isn't it?
+  Is there any way to use the same mecahnism?
+
+Client connects, needs notifications.
+Maintain an internal client notification queue?
+
+Options:
+Central thing that controls notifications (what is above)
+Notifiers spawned as needed for a client when it has outstanding notifications.
+Internal producer/consumer for notifiers.
+What is going to be as timely as possible and the simplest to understand?
+
+Requirements:
+1) Clients are notified as quickly as possible.  Notifications should be tied to
+   data changes, not to client heartbeats.
+2) Don't require raft writes on each client heartbeat.  Don't tie how many times
+   we write to clients with the number of writes to Raft.
+3)
+
+A raft that takes over has to know where clients are.  Data must exist in Raft
+via the "normal" raft mechanisms (there's no reason to make some other
+data replication system).
+
+Keep a pointer for each client.
+
+Keep the lowest notification for each client that's lagging behind.
+
+Keep a list of elements for a client when it is lagging behind.
+
+Is it that we want to reduce the amout of data in the leveldb?  Or just not have
+a bunch of client cruft in there?  If we do log compaction, how much does having
+cruft client data really matter?

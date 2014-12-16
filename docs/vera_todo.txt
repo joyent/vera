@@ -1,4 +1,6 @@
 ### TODO
+Walk through client interactions, see if interactions are sime enough that it
+    could be implemented in another language.
 Server
    - Raft ticker
    - Message Bus (finish)
@@ -41,6 +43,8 @@ Restify/bunyan RequestCaptureStream like in Manta frontend?
 db.db.getProperty('leveldb.stats');
 leveldown.destroy(location, callback);
 Snapshot reads to node level[down|up]?
+  - https://github.com/rvagg/node-levelup/issues/138
+  - https://github.com/rvagg/node-levelup/issues/15
 
 ### Overall todo:
 * Solidly tested Raft Core
