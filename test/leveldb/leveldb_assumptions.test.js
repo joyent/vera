@@ -1,4 +1,12 @@
-// Copyright (c) 2013, Joyent, Inc. All rights reserved.
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+/*
+ * Copyright (c) 2014, Joyent, Inc.
+ */
 
 //This may be a liitle unconventional to keep around, but this file exists to
 // show the ways vera uses leveldb and as a reminder of how to interact with it.
