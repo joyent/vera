@@ -50,14 +50,14 @@ try {
 }
 
 function help(msg) {
-    var help = dd.help({ includeEnv: true }).trimRight();
+    var h = dd.help({ includeEnv: true }).trimRight();
     if (msg) {
         console.log('dumpdb: ' + msg);
     }
     console.log('WARNING: Do not run while Vera is running.\n'
                 + 'usage: ' + path.basename(process.argv[1]) + ' [OPTIONS]\n'
                 + 'options:\n'
-                + help);
+                + h);
     process.exit(2);
 }
 
@@ -77,9 +77,9 @@ dbHelpers.open(_opts, function (err, db) {
         process.exit(1);
     }
     dbHelpers.dumpDbToConsole(db, function () {
-        db.close(function (err) {
+        db.close(function (err2) {
             if (err) {
-                console.error(err);
+                console.error(err2);
                 process.exit(1);
             }
             //Exit should exit happily here.

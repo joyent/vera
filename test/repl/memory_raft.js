@@ -127,6 +127,12 @@ module.exports = {
 ///--- Operations
 
 var OPS = {
+    // Gives all operations, very rudamentary...
+    'help': function (_, cmd, cb) {
+        _.console(Object.keys(OPS).join('\n'));
+        return (cb());
+    },
+
     // _ -> (cleared)
     'reset': function (_, cmd, cb) {
         Object.keys(_).forEach(function (k) {

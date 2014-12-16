@@ -1,5 +1,5 @@
 ### TODO
-Walk through client interactions, see if interactions are sime enough that it
+Walk through client interactions, see if interactions are sane enough that it
     could be implemented in another language.
 Server
    - Raft ticker
@@ -35,6 +35,7 @@ Tools:
   - add/remove/promote a new peer
   - force leader to step down
 Leader regularly commits suicide as a chaos-monkey type thing.
+Better help in raft repl.
 Doc on using the memory raft repl (and tests).
 Toy master failover app, use it in testing vera.
 Look at node-ctype: has uint64 stuff.
